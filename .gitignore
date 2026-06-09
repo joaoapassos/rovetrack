@@ -1,0 +1,8 @@
+node_modules
+dist
+out
+.DS_Store
+.eslintcache
+*.log*
+repomix-output.md
+repomix-instruction.md
