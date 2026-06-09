@@ -11,7 +11,7 @@ import {
   shell, 
 } from 'electron'
 import icon from '../../resources/icon.png?asset'
-import { downloadAudioBruto } from './downloader'
+import { processAudioPipeline } from './downloader'
 
 
 
@@ -69,9 +69,9 @@ app.whenReady().then(() => {
   // --- TESTE DO MOTOR ROVETRACK ---
   // Pegamos a pasta Downloads padrão do sistema e criamos uma subpasta de teste
   const pastaDestino = join(app.getPath('downloads'), 'RoveTrackTest')
-  const linkTeste = 'https://youtube.com/playlist?list=PLGcfYjtd3kKlB0LV2AXvJ6F_-ZqjmDbq0&si=ZgBjNKc7x51fWN8e' // Link curto/padrão de teste
+  const linkTeste = 'https://youtu.be/MehGiWKPwnk?si=r8Tb3JwLrbJhwz3v' // Link curto/padrão de teste
 
-  downloadAudioBruto(linkTeste, pastaDestino)
+  processAudioPipeline(linkTeste, pastaDestino)
   // --------------------------------
 
   app.on('activate', () => {
