@@ -11,7 +11,7 @@ import {
   shell, 
 } from 'electron'
 import icon from '../../resources/icon.png?asset'
-import { processAudioPipeline } from './downloader'
+import { processAudioPipeline } from './pipeline'
 
 
 

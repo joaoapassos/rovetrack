@@ -23,7 +23,7 @@
     "git": {
       "sortByChanges": true,
       "sortByChangesMaxCommits": 100,
-      "includeDiffs": false,
+      "includeDiffs": true,
       "includeLogs": false,
       "includeLogsCount": 50
     }
