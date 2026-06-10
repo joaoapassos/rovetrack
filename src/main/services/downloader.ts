@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import ffmpegPath from 'ffmpeg-static'
 import ytDlp from 'yt-dlp-exec'
 
-export async function downloadRawFiles(config: PipelineConfig): Promise<void> {
+export async function downloadRawFiles(config: TrackPayload): Promise<void> {
   if (!ffmpegPath) throw new Error('Binário do FFmpeg não encontrado.')
 
   await ytDlp(config.url, {

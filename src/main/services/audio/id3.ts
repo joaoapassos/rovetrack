@@ -1,5 +1,4 @@
 import NodeID3 from 'node-id3'
-import type { TrackMetadata } from '../../types'
 
 export function injectId3Tags(mp3Path: string, tags: TrackMetadata): void {
   const id3Tags: NodeID3.Tags = {

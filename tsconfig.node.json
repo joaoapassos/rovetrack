@@ -1,6 +1,6 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
-  "include": ["electron.vite.config.*", "src/main/**/*", "src/preload/**/*", "src/public/types/pipeline-config.d.ts", "src/shared/types/pipeline-config.d.ts", "src/shared/types/track-metadata.d.ts"],
+  "include": ["electron.vite.config.*", "src/main/**/*", "src/preload/**/*", "src/shared/types/track-payload.d.ts", "src/shared/types/track-metadata.d.ts"],
   "compilerOptions": {
     "composite": true,
     "types": ["electron-vite/node"],
