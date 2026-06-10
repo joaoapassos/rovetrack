@@ -18,7 +18,7 @@ declare interface TrackPayload {
   outputDir: string
 
   /**
-   *  Representa os metadados da faixa de áudio.
+   *  Representa os metadados da faixa de áudio que podem ser enviados no payload.
    */
   metadata?: TrackMetadata
 }
