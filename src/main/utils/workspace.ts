@@ -21,7 +21,7 @@ export async function prepareWorkspace(): Promise<string> {
     // Tenta forçar a eliminação de qualquer lixo antigo
     await rm(workspaceDir, { recursive: true, force: true })
   } catch (error) {
-        if(error instanceof Error) console.log(`[prepareWorkspace] Error: ${error.message}`);
+        if(error instanceof Error) console.log(`[Workspace.prepareWorkspace] Error: ${error.message}`);
   }
   
   // Cria uma nova pasta limpa
@@ -38,6 +38,6 @@ export async function cleanWorkspace(): Promise<void> {
     // Utilizamos o mesmo sistema de "retry" para evitar o erro EBUSY do Windows
     await rm(workspaceDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   } catch (error) {
-    console.warn('[Workspace] Aviso: Não foi possível desmobilizar o acampamento:', error)
+    console.warn('[Workspace.cleanWorkspace] Aviso: Não foi possível desmobilizar o acampamento:', error)
   }
 }
