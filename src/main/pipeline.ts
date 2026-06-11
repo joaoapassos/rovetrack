@@ -4,10 +4,11 @@ import { downloadRawFiles } from '@main/services/downloader'
 import { formatCoverImage } from '@main/services/image/'
 import { extractMetadataFromJson } from '@main/services/metadata/'
 import {
-  cleanUpTempFiles,
+  cleanWorkspace,
   findCoverImage,
   findFileByPrefixAndSuffix,
-  moveOrRenameFile
+  moveOrRenameFile,
+  prepareWorkspace
 } from '@main/utils'
 
 export async function processAudioPipeline(url: string, outputDir: string): Promise<void> {
@@ -16,25 +17,29 @@ export async function processAudioPipeline(url: string, outputDir: string): Prom
   console.log('--------------------------------------------------')
 
   try {
-    // 1. Download Bruto
+    // 0. Preparar o Acampamento Base
+    console.log('[RoveTrack] Etapa 0/4: A preparar o acampamento base (Workspace temporário)...')
+    const workspaceDir = await prepareWorkspace()
+
+    // 1. Download Bruto (A apontar para o Workspace)
     console.log('[RoveTrack] Etapa 1/4: A extrair áudio e metadados brutos...')
-    await downloadRawFiles({ url, outputDir })
+    await downloadRawFiles({ url, outputDir: workspaceDir })
 
     // 2. Identificação de Ficheiros
-    const jsonFile = await findFileByPrefixAndSuffix(outputDir, 'rovetrack_temp_', '.info.json')
-    if (!jsonFile) throw new Error('Metadados JSON não encontrados na pasta de destino.')
+    const jsonFile = await findFileByPrefixAndSuffix(workspaceDir, 'rovetrack_temp_', '.info.json')
+    if (!jsonFile) throw new Error('Metadados JSON não encontrados no acampamento.')
 
     const baseName = jsonFile.replace('.info.json', '')
-    const infoPath = join(outputDir, jsonFile)
-    const mp3Path = join(outputDir, `${baseName}.mp3`)
+    const infoPath = join(workspaceDir, jsonFile)
+    const mp3Path = join(workspaceDir, `${baseName}.mp3`)
 
-    const originalImage = await findCoverImage(outputDir, baseName, jsonFile)
+    const originalImage = await findCoverImage(workspaceDir, baseName, jsonFile)
     if (!originalImage) throw new Error('Imagem de miniatura não encontrada.')
-    const imagePath = join(outputDir, originalImage)
+    const imagePath = join(workspaceDir, originalImage)
 
     // 3. Processamento da Capa
     console.log('[RoveTrack] Etapa 2/4: A forjar a capa (recorte 1:1)...')
-    const coverPath = join(outputDir, `${baseName}_cover.jpg`)
+    const coverPath = join(workspaceDir, `${baseName}_cover.jpg`)
     await formatCoverImage(imagePath, coverPath)
 
     // 4. Injeção de Metadados
@@ -42,17 +47,21 @@ export async function processAudioPipeline(url: string, outputDir: string): Prom
     const metadata = await extractMetadataFromJson(infoPath, coverPath)
     injectId3Tags(mp3Path, metadata)
 
-    // 5. Organização do Acampamento (Limpeza)
-    console.log('[RoveTrack] Etapa 4/4: A finalizar montagem e a limpar ficheiros temporários...')
+    // 5. Organização do Acampamento (Entrega Final e Limpeza)
+    console.log('[RoveTrack] Etapa 4/4: A entregar a carga e a desmobilizar o acampamento...')
     const safeTitle = metadata.title.replace(/[\\/:*?"<>|]/g, '')
     const finalMp3Path = join(outputDir, `${safeTitle}.mp3`)
 
+    // Transporta APENAS a música polida do workspace para a pasta do utilizador
     await moveOrRenameFile(mp3Path, finalMp3Path)
-    await cleanUpTempFiles([infoPath, imagePath, coverPath])
+    
+    // Apaga a pasta temporária inteira de uma só vez
+    await cleanWorkspace()
 
-    console.log(`[RoveTrack] Sucesso absoluto! Faixa guardada como: ${safeTitle}.mp3`)
+    console.log(`[RoveTrack] Sucesso absoluto! Faixa guardada em: ${finalMp3Path}`)
     console.log('--------------------------------------------------\n')
   } catch (error) {
     console.error('[RoveTrack] Falha crítica no pipeline:', error)
+    // O lixo temporário continuará escondido no sistema e será apagado no próximo start (prepareWorkspace)
   }
 }
