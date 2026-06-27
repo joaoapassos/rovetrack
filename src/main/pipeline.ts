@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { readdir } from 'node:fs/promises'
 import { injectId3Tags } from '@main/services/audio/'
 import { downloadRawFiles } from '@main/services/downloader'
 import { formatCoverImage } from '@main/services/image/'
@@ -6,62 +7,79 @@ import { extractMetadataFromJson } from '@main/services/metadata/'
 import {
   cleanWorkspace,
   findCoverImage,
-  findFileByPrefixAndSuffix,
   moveOrRenameFile,
   prepareWorkspace
 } from '@main/utils'
 
-export async function processAudioPipeline({url, outputDir}: TrackPayload): Promise<void> {
-  console.log('\n--------------------------------------------------')
-  console.log(`[RoveTrack] Iniciando expedição: ${url}`)
-  console.log('--------------------------------------------------')
+export async function processAudioPipeline(payload: TrackPayload, onLog: (msg: string) => void): Promise<void> {
+  const { url, outputDir } = payload;
+  
+  onLog('--------------------------------------------------')
+  onLog(`[Expedição] Iniciada: ${url}`)
+  onLog('--------------------------------------------------')
 
   try {
-    // 0. Preparar o Acampamento Base
-    console.log('[RoveTrack] Etapa 0/4: A preparar o acampamento base (Workspace temporário)...')
+    onLog('[Etapa 0] Preparando acampamento base (Workspace)...')
     const workspaceDir = await prepareWorkspace()
 
-    // 1. Download Bruto (A apontar para o Workspace)
-    console.log('[RoveTrack] Etapa 1/4: A extrair áudio e metadados brutos...')
-    await downloadRawFiles({ url, outputDir: workspaceDir })
+    onLog('[Etapa 1] Baixando áudio(s) e metadados brutos...')
+    await downloadRawFiles({ url, outputDir: workspaceDir }, onLog)
 
-    // 2. Identificação de Ficheiros
-    const jsonFile = await findFileByPrefixAndSuffix(workspaceDir, 'rovetrack_temp_', '.info.json')
-    if (!jsonFile) throw new Error('Metadados JSON não encontrados no acampamento.')
-
-    const baseName = jsonFile.replace('.info.json', '')
-    const infoPath = join(workspaceDir, jsonFile)
-    const mp3Path = join(workspaceDir, `${baseName}.mp3`)
-
-    const originalImage = await findCoverImage(workspaceDir, baseName, jsonFile)
-    if (!originalImage) throw new Error('Imagem de miniatura não encontrada.')
-    const imagePath = join(workspaceDir, originalImage)
-
-    // 3. Processamento da Capa
-    console.log('[RoveTrack] Etapa 2/4: A forjar a capa (recorte 1:1)...')
-    const coverPath = join(workspaceDir, `${baseName}_cover.jpg`)
-    await formatCoverImage(imagePath, coverPath)
-
-    // 4. Injeção de Metadados
-    console.log('[RoveTrack] Etapa 3/4: A injetar metadados ID3...')
-    const metadata = await extractMetadataFromJson(infoPath, coverPath)
-    injectId3Tags(mp3Path, metadata)
-
-    // 5. Organização do Acampamento (Entrega Final e Limpeza)
-    console.log('[RoveTrack] Etapa 4/4: A entregar a carga e a desmobilizar o acampamento...')
-    const safeTitle = metadata.title.replace(/[\\/:*?"<>|]/g, '')
-    const finalMp3Path = join(outputDir, `${safeTitle}.mp3`)
-
-    // Transporta APENAS a música polida do workspace para a pasta do utilizador
-    await moveOrRenameFile(mp3Path, finalMp3Path)
+    onLog('\n[Etapa 2] Download concluído. Analisando arquivos no acampamento...')
+    const files = await readdir(workspaceDir)
     
-    // Apaga a pasta temporária inteira de uma só vez
+    // Filtramos os JSONs e aplicamos a VALIDAÇÃO CRUZADA: 
+    // Só entra na fila se existir um arquivo .mp3 com o exato mesmo nome base.
+    // Isso ignora automaticamente o JSON da própria Playlist ou downloads abortados.
+    const jsonFiles = files.filter(f => {
+      if (!f.startsWith('rovetrack_temp_') || !f.endsWith('.info.json')) return false;
+      const baseName = f.replace('.info.json', '')
+      return files.includes(`${baseName}.mp3`) // Só passa se o MP3 existir na pasta
+    })
+    
+    if (jsonFiles.length === 0) throw new Error('Nenhum dado válido encontrado após o download.')
+
+    onLog(`[Etapa 3] ${jsonFiles.length} faixa(s) detectada(s). Iniciando forja em lote...`)
+
+    // LOOP DE PLAYLIST: Processa cada música individualmente
+    for (let i = 0; i < jsonFiles.length; i++) {
+      const jsonFile = jsonFiles[i]
+      const baseName = jsonFile.replace('.info.json', '')
+      const infoPath = join(workspaceDir, jsonFile)
+      const mp3Path = join(workspaceDir, `${baseName}.mp3`)
+
+      onLog(`\n--- [Faixa ${i + 1}/${jsonFiles.length}] ---`)
+      
+      const originalImage = await findCoverImage(workspaceDir, baseName, jsonFile)
+      if (!originalImage) throw new Error(`Imagem não encontrada para a faixa ${i+1}.`)
+      const imagePath = join(workspaceDir, originalImage)
+
+      onLog(`  └─ Forjando a capa (recorte 1:1)...`)
+      const coverPath = join(workspaceDir, `${baseName}_cover.jpg`)
+      await formatCoverImage(imagePath, coverPath)
+
+      onLog(`  └─ Injetando metadados (ID3 Tags)...`)
+      const metadata = await extractMetadataFromJson(infoPath, coverPath)
+      injectId3Tags(mp3Path, metadata)
+
+      onLog(`  └─ Limpando e transferindo para destino final...`)
+      const safeTitle = metadata.title.replace(/[\\/:*?"<>|]/g, '')
+      const finalMp3Path = join(outputDir, `${safeTitle}.mp3`)
+
+      await moveOrRenameFile(mp3Path, finalMp3Path)
+      onLog(`  └─ Sucesso: ${safeTitle}.mp3`)
+    }
+
+    onLog('\n[Etapa 4] Desmobilizando o acampamento...')
     await cleanWorkspace()
 
-    console.log(`[RoveTrack] Sucesso absoluto! Faixa guardada em: ${finalMp3Path}`)
-    console.log('--------------------------------------------------\n')
+    onLog('--------------------------------------------------')
+    onLog(`[Expedição] Concluída com SUCESSO ABSOLUTO!`)
+    onLog('--------------------------------------------------')
+
   } catch (error) {
-    console.error('[RoveTrack] Falha crítica no pipeline:', error)
-    // O lixo temporário continuará escondido no sistema e será apagado no próximo start (prepareWorkspace)
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    onLog(`\n[FALHA CRÍTICA] ${errorMsg}`)
+    throw error
   }
 }

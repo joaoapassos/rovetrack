@@ -17,6 +17,11 @@ declare global {
        * @returns Uma Promise resolvida quando todo o pipeline de processamento é finalizado.
        */
       processAudio: (payload: TrackPayload) => Promise<void>
+
+      /**
+       * Permite ao React registar uma função para escutar a telemetria (logs) do back-end em tempo real.
+       */
+      onPipelineLog: (callback: (msg: string) => void) => void
     }
   }
 }
