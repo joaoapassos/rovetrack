@@ -1,8 +1,11 @@
 import { electronAPI } from '@electron-toolkit/preload'
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 
 // Custom APIs for renderer
-const api = {}
+const api = {
+  selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+  processAudio: (payload: TrackPayload) => ipcRenderer.invoke('audio:process', payload)
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -15,8 +18,8 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in dts)
+  // @ts-expect-error
   window.electron = electronAPI
-  // @ts-ignore (define in dts)
+  // @ts-expect-error
   window.api = api
 }

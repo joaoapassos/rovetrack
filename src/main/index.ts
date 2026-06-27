@@ -7,6 +7,7 @@ import {
 import {
   app, 
   BrowserWindow, 
+  dialog,
   ipcMain,
   shell, 
 } from 'electron'
@@ -66,12 +67,30 @@ app.whenReady().then(() => {
 
   createWindow()
 
-  // --- TESTE DO MOTOR ROVETRACK ---
-  // Pegamos a pasta Downloads padrão do sistema e criamos uma subpasta de teste
-  const pastaDestino = join(app.getPath('downloads'), 'RoveTrackTest')
-  const linkTeste = 'https://youtu.be/MehGiWKPwnk?si=r8Tb3JwLrbJhwz3v' // Link curto/padrão de teste
+  // --- RECPTORES IPC (ROVETRACK) ---
+  
+  /**
+   * Escuta o evento 'dialog:selectFolder' disparado pelo front-end.
+   * Interrompe o processo para abrir a janela nativa de seleção do OS.
+   */
+  ipcMain.handle('dialog:selectFolder', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: 'Selecione o Acampamento Base (Destino)'
+    })
+    
+    if (canceled) return null
+    return filePaths[0]
+  })
 
-  processAudioPipeline(linkTeste, pastaDestino)
+  /**
+   * Escuta o evento 'audio:process' disparado pelo front-end.
+   * Recebe o payload tipado, engata o motor de extração (Pipeline)
+   * e aguarda a finalização para retornar o sinal de sucesso ao React.
+   */
+  ipcMain.handle('audio:process', async (_, payload: TrackPayload) => {
+    await processAudioPipeline(payload);
+  })
   // --------------------------------
 
   app.on('activate', () => {

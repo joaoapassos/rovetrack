@@ -11,7 +11,7 @@ import {
   prepareWorkspace
 } from '@main/utils'
 
-export async function processAudioPipeline(url: string, outputDir: string): Promise<void> {
+export async function processAudioPipeline({url, outputDir}: TrackPayload): Promise<void> {
   console.log('\n--------------------------------------------------')
   console.log(`[RoveTrack] Iniciando expedição: ${url}`)
   console.log('--------------------------------------------------')
