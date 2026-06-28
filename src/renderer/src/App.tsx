@@ -1,18 +1,20 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef, useState} from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
+import { calculateGlobalProgress } from './utils'
 
 const schema = z.object({
-  url: z.string().url('É necessário um link válido do YouTube.'),
+  url: z.url('É necessário um link válido do YouTube.'),
   outputDir: z.string().min(1, 'Defina o caminho de destino para a expedição.')
 })
 
 type RoveFormData = z.infer<typeof schema>
 
+
+
 function App(): React.JSX.Element {
-  const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle')
-  const [logs, setLogs] = useState<string[]>([])
+  const [telemetry, setTelemetry] = useState<PipelineState | null>(null)
   const logEndRef = useRef<HTMLDivElement>(null)
 
   const {
@@ -30,35 +32,40 @@ function App(): React.JSX.Element {
 
   // --- Efeito de Telemetria ---
   useEffect(() => {
-    // Escuta os logs vindos do motor Node.js e adiciona ao array
-    window.api.onPipelineLog((msg) => {
-      setLogs((prev) => [...prev, msg])
+    window.api.onPipelineTelemetry((state) => {
+      setTelemetry(state)
+      console.log(state)
     })
   }, [])
 
-  // Auto-scroll para o final do terminal sempre que um log novo chega
+  // Auto-scroll para o final do terminal sempre que o status muda
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [logs])
+  }, [telemetry])
   // ----------------------------
 
   const handleSelectFolder = async () => {
     const folder = await window.api.selectFolder()
-    if (folder) {
-      setValue('outputDir', folder, { shouldValidate: true })
-    }
+    if (folder) setValue('outputDir', folder, { shouldValidate: true })
   }
 
   const onSubmit = async (data: RoveFormData) => {
-    setStatus('processing')
-    setLogs([]) // Limpa o terminal antes de uma nova expedição
+    setTelemetry({
+      status: 'preparing',
+      message: 'A iniciar os motores...',
+      progress: 0,
+      step: { current: 1, total: 4 },
+      batch: { current: 1, total: 1 }
+    })
     try {
       await window.api.processAudio({ url: data.url, outputDir: data.outputDir })
-      setStatus('success')
     } catch (error) {
-      setStatus('error')
+      // Falhas são apanhadas pelo estado 'error' da telemetria
     }
   }
+
+  const isProcessing = telemetry?.status === 'preparing' || telemetry?.status === 'downloading' || telemetry?.status === 'forging';
+  const globalProgress = calculateGlobalProgress(telemetry);
 
   return (
     <main className="min-h-screen bg-[#1b1b1f] text-[#f8f8f8] flex flex-col items-center justify-center p-6 select-none font-sans">
@@ -73,15 +80,15 @@ function App(): React.JSX.Element {
         onSubmit={handleSubmit(onSubmit)} 
         className="w-full max-w-xl bg-[#222222] border border-[#32363f] p-6 rounded-md shadow-2xl space-y-6"
       >
-        {/* Input de URL e Output Directory permanecem iguais */}
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#8b949e] uppercase tracking-wider block">Coordenadas (Link)</label>
           <input
             {...register('url')}
-            disabled={status === 'processing'}
+            disabled={isProcessing}
             placeholder="https://youtube.com/watch?v=... ou Playlist"
             className="w-full bg-[#161618] border border-[#32363f] focus:border-[#A2ECFB] outline-none text-[#e6edf3] text-sm p-3 rounded transition-colors font-mono"
           />
+          {errors.url && <p className="text-red-400 text-xs font-mono mt-1">{errors.url.message}</p>}
         </div>
 
         <div className="space-y-2">
@@ -96,43 +103,62 @@ function App(): React.JSX.Element {
             <button
               type="button"
               onClick={handleSelectFolder}
-              disabled={status === 'processing'}
-              className="bg-[#32363f] hover:bg-[#414853] text-[#e6edf3] px-4 rounded border border-[#414853] font-semibold uppercase text-xs disabled:opacity-50"
+              disabled={isProcessing}
+              className="bg-[#32363f] hover:bg-[#414853] text-[#e6edf3] px-4 rounded border border-[#414853] font-semibold uppercase text-xs disabled:opacity-50 transition-colors"
             >
               Procurar
             </button>
           </div>
+          {errors.outputDir && <p className="text-red-400 text-xs font-mono mt-1">{errors.outputDir.message}</p>}
         </div>
 
-        {/* --- TERMINAL DE EXPEDIÇÃO (TELEMETRIA) --- */}
-        <div className="h-48 w-full bg-[#0d0d0f] border border-[#32363f] rounded p-4 font-mono text-xs overflow-y-auto flex flex-col gap-1 shadow-inner">
-          {logs.length === 0 ? (
-            <span className="text-[#515c67] italic">AGUARDANDO INSTRUÇÕES...</span>
-          ) : (
-            logs.map((log, index) => (
-              <span 
-                key={index} 
-                className={`${log.includes('FALHA') ? 'text-red-400' : log.includes('SUCESSO') ? 'text-[#A2ECFB] font-bold' : 'text-[#a0a4a8]'}`}
-                style={{ whiteSpace: 'pre-wrap' }}
-              >
-                {log}
+        {/* --- DISPLAY VISUAL DA TELEMETRIA COM PROGRESSO GLOBAL --- */}
+        {telemetry && (
+          <div className="w-full bg-[#0d0d0f] border border-[#32363f] rounded p-4 flex flex-col gap-3 shadow-inner">
+            <div className="flex justify-between items-center text-xs font-mono">
+              <span className="text-[#A2ECFB] uppercase font-bold flex items-center gap-2">
+                {telemetry.status === 'downloading' ? `A DESCARREGAR... ${telemetry.progress || 0}%` : telemetry.status.toUpperCase()}
               </span>
-            ))
-          )}
-          {/* Âncora invisível para o auto-scroll */}
-          <div ref={logEndRef} />
-        </div>
+              <span className="text-[#515c67]">
+                FAIXA {telemetry.batch.current} / {telemetry.batch.total}
+              </span>
+            </div>
+            
+            {/* Barra de Progresso Suave (Global) */}
+            <div className="w-full h-2 bg-[#161618] rounded-full overflow-hidden relative">
+              <div 
+                className={`absolute top-0 left-0 h-full transition-all duration-500 ease-out ${
+                  telemetry.status === 'error' ? 'bg-red-500' : 
+                  telemetry.status === 'success' ? 'bg-green-500' : 
+                  'bg-[#A2ECFB]'
+                }`}
+                style={{ width: `${globalProgress}%` }}
+              />
+            </div>
+            
+            <div className="flex justify-between items-center text-xs font-mono">
+                <span className="text-[#a0a4a8] truncate max-w-[80%]">
+                  {telemetry.message}
+                </span>
+                <span className="text-[#515c67] ml-2 shrink-0">
+                  {Math.round(globalProgress)}%
+                </span>
+            </div>
+            {/* Âncora para scroll caso decida voltar a meter logs em lista */}
+            <div ref={logEndRef} />
+          </div>
+        )}
 
         <button
           type="submit"
-          disabled={status === 'processing'}
+          disabled={isProcessing}
           className={`w-full py-4 rounded font-bold uppercase tracking-widest transition-all ${
-            status === 'processing' 
+            isProcessing 
               ? 'bg-[#32363f] text-[#8b949e] cursor-not-allowed border border-[#414853]' 
               : 'bg-[#A2ECFB] text-[#1b1b1f] hover:bg-[#8bd6e5] shadow-[0_0_15px_rgba(162,236,251,0.2)]'
           }`}
         >
-          {status === 'processing' ? 'Extração em Andamento...' : 'Iniciar Extração'}
+          {isProcessing ? 'Extração em Andamento...' : 'Iniciar Extração'}
         </button>
       </form>
     </main>

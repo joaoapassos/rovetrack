@@ -11,75 +11,81 @@ import {
   prepareWorkspace
 } from '@main/utils'
 
-export async function processAudioPipeline(payload: TrackPayload, onLog: (msg: string) => void): Promise<void> {
+export async function processAudioPipeline(
+  payload: TrackPayload, 
+  onTelemetry: (state: PipelineState) => void
+): Promise<void> {
   const { url, outputDir } = payload;
   
-  onLog('--------------------------------------------------')
-  onLog(`[Expedição] Iniciada: ${url}`)
-  onLog('--------------------------------------------------')
+  const state: PipelineState = {
+    status: 'preparing',
+    message: 'Iniciando expedição...',
+    progress: 0,
+    step: { current: 1, total: 4 },
+    batch: { current: 1, total: 1 }
+  }
+
+  const updateState = (update: Partial<PipelineState>) => {
+    Object.assign(state, update)
+    onTelemetry({ ...state })
+  }
+
+  updateState({ message: `[Expedição] Iniciada: ${url}` })
 
   try {
-    onLog('[Etapa 0] Preparando acampamento base (Workspace)...')
+    updateState({ step: { current: 1, total: 4 }, message: '[Etapa 1] A preparar o acampamento base...' })
     const workspaceDir = await prepareWorkspace()
 
-    onLog('[Etapa 1] Baixando áudio(s) e metadados brutos...')
-    await downloadRawFiles({ url, outputDir: workspaceDir }, onLog)
+    updateState({ status: 'downloading', step: { current: 2, total: 4 }, message: '[Etapa 2] A descarregar áudio e metadados...' })
+    await downloadRawFiles({ url, outputDir: workspaceDir }, updateState)
 
-    onLog('\n[Etapa 2] Download concluído. Analisando arquivos no acampamento...')
+    updateState({ status: 'forging', step: { current: 3, total: 4 }, progress: 0, message: 'Download concluído. A analisar ficheiros...' })
     const files = await readdir(workspaceDir)
     
-    // Filtramos os JSONs e aplicamos a VALIDAÇÃO CRUZADA: 
-    // Só entra na fila se existir um arquivo .mp3 com o exato mesmo nome base.
-    // Isso ignora automaticamente o JSON da própria Playlist ou downloads abortados.
     const jsonFiles = files.filter(f => {
       if (!f.startsWith('rovetrack_temp_') || !f.endsWith('.info.json')) return false;
       const baseName = f.replace('.info.json', '')
-      return files.includes(`${baseName}.mp3`) // Só passa se o MP3 existir na pasta
+      return files.includes(`${baseName}.mp3`)
     })
     
     if (jsonFiles.length === 0) throw new Error('Nenhum dado válido encontrado após o download.')
 
-    onLog(`[Etapa 3] ${jsonFiles.length} faixa(s) detectada(s). Iniciando forja em lote...`)
-
-    // LOOP DE PLAYLIST: Processa cada música individualmente
     for (let i = 0; i < jsonFiles.length; i++) {
+      updateState({ batch: { current: i + 1, total: jsonFiles.length }, message: `A forjar faixa ${i + 1} de ${jsonFiles.length}...` })
+      
       const jsonFile = jsonFiles[i]
       const baseName = jsonFile.replace('.info.json', '')
       const infoPath = join(workspaceDir, jsonFile)
       const mp3Path = join(workspaceDir, `${baseName}.mp3`)
-
-      onLog(`\n--- [Faixa ${i + 1}/${jsonFiles.length}] ---`)
       
       const originalImage = await findCoverImage(workspaceDir, baseName, jsonFile)
       if (!originalImage) throw new Error(`Imagem não encontrada para a faixa ${i+1}.`)
       const imagePath = join(workspaceDir, originalImage)
 
-      onLog(`  └─ Forjando a capa (recorte 1:1)...`)
+      updateState({ message: `  └─ A recortar a capa (1:1)...` })
       const coverPath = join(workspaceDir, `${baseName}_cover.jpg`)
       await formatCoverImage(imagePath, coverPath)
 
-      onLog(`  └─ Injetando metadados (ID3 Tags)...`)
+      updateState({ message: `  └─ A injetar metadados ID3...` })
       const metadata = await extractMetadataFromJson(infoPath, coverPath)
       injectId3Tags(mp3Path, metadata)
 
-      onLog(`  └─ Limpando e transferindo para destino final...`)
+      updateState({ message: `  └─ A transferir ficheiro final...` })
       const safeTitle = metadata.title.replace(/[\\/:*?"<>|]/g, '')
       const finalMp3Path = join(outputDir, `${safeTitle}.mp3`)
 
       await moveOrRenameFile(mp3Path, finalMp3Path)
-      onLog(`  └─ Sucesso: ${safeTitle}.mp3`)
+      updateState({ metadata: { title: safeTitle } })
     }
 
-    onLog('\n[Etapa 4] Desmobilizando o acampamento...')
+    updateState({ step: { current: 4, total: 4 }, message: '[Etapa 4] A desmobilizar o acampamento...' })
     await cleanWorkspace()
 
-    onLog('--------------------------------------------------')
-    onLog(`[Expedição] Concluída com SUCESSO ABSOLUTO!`)
-    onLog('--------------------------------------------------')
+    updateState({ status: 'success', progress: 100, message: 'Expedição concluída com SUCESSO ABSOLUTO!' })
 
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    onLog(`\n[FALHA CRÍTICA] ${errorMsg}`)
+    updateState({ status: 'error', message: `[FALHA CRÍTICA] ${errorMsg}` })
     throw error
   }
 }

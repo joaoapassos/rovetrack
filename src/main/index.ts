@@ -89,9 +89,8 @@ app.whenReady().then(() => {
    * e aguarda a finalização para retornar o sinal de sucesso ao React.
    */
   ipcMain.handle('audio:process', async (event, payload: TrackPayload) => {
-    // Passamos uma função de callback que emite o evento 'audio:log' de volta para o front-end
-    await processAudioPipeline(payload, (msg: string) => {
-      event.sender.send('audio:log', msg)
+    await processAudioPipeline(payload, (state: PipelineState) => {
+      event.sender.send('audio:telemetry', state)
     });
   })
   // --------------------------------
