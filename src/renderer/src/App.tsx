@@ -21,14 +21,14 @@ function App(): React.JSX.Element {
     register,
     handleSubmit,
     setValue,
-    watch,
+    // watch,
     formState: { errors }
   } = useForm<RoveFormData>({
     resolver: zodResolver(schema),
     defaultValues: { url: '', outputDir: '' }
   })
 
-  const outputDir = watch('outputDir')
+  // const outputDir = watch('outputDir')
 
   // --- Efeito de Telemetria ---
   useEffect(() => {
