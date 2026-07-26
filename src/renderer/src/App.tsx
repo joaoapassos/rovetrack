@@ -163,6 +163,8 @@ function App(): React.JSX.Element {
           {isProcessing ? 'Extração em Andamento...' : 'Iniciar Extração'}
         </button>
       </form>
+
+      <footer className='text-sm text-gray-400'>Copyright &copy; 2026 <a href="https://github.com/joaoapassos" target='_blank' rel="noreferrer" className='text-blue-400'>@joaoapassos</a></footer>
     </main>
   )
 }
