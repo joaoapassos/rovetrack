@@ -3,6 +3,7 @@ import { useEffect, useRef, useState} from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { calculateGlobalProgress } from './utils'
+import Icon from './assets/icon.png';
 
 const schema = z.object({
   url: z.url('É necessário um link válido do YouTube.'),
@@ -68,19 +69,19 @@ function App(): React.JSX.Element {
   const globalProgress = calculateGlobalProgress(telemetry);
 
   return (
-    <main className="min-h-screen bg-[#1b1b1f] text-[#f8f8f8] flex flex-col items-center justify-center p-6 select-none font-sans">
-      <header className="mb-8 text-center flex flex-col items-center">
+    <main className="min-h-screen bg-[#1b1b1f] text-[#f8f8f8] flex flex-col gap-10 items-center justify-center p-6 select-none font-sans">
+      <header className="mb-8 text-center flex flex-col items-center gap-3">
         <div className="w-16 h-16 bg-[#282828] border-2 border-[#414853] rounded-lg mb-4 flex items-center justify-center shadow-lg">
-           <span className="font-mono text-2xl font-bold text-[#A2ECFB]">RT</span>
+           <img src={Icon} alt="Ícone do RoveTrack" className="w-16 h-16 mb-4" />
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-white uppercase">RoveTrack</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-white uppercase">RoveTrack <span className='text-sm text-blue-400'>BETA</span></h1>
       </header>
 
       <form 
         onSubmit={handleSubmit(onSubmit)} 
-        className="w-full max-w-xl bg-[#222222] border border-[#32363f] p-6 rounded-md shadow-2xl space-y-6"
+        className="w-full max-w-xl flex flex-col gap-5 bg-[#222222] border border-[#32363f] p-6 rounded-md shadow-2xl space-y-6"
       >
-        <div className="space-y-2">
+        <div className="space-y-2 flex flex-col gap-2">
           <label className="text-xs font-bold text-[#8b949e] uppercase tracking-wider block">Coordenadas (Link)</label>
           <input
             {...register('url')}
@@ -91,7 +92,7 @@ function App(): React.JSX.Element {
           {errors.url && <p className="text-red-400 text-xs font-mono mt-1">{errors.url.message}</p>}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 flex flex-col gap-2">
           <label className="text-xs font-bold text-[#8b949e] uppercase tracking-wider block">Acampamento (Destino)</label>
           <div className="flex gap-2">
             <input
@@ -113,6 +114,7 @@ function App(): React.JSX.Element {
         </div>
 
         {/* --- DISPLAY VISUAL DA TELEMETRIA COM PROGRESSO GLOBAL --- */}
+        
         {telemetry && (
           <div className="w-full bg-[#0d0d0f] border border-[#32363f] rounded p-4 flex flex-col gap-3 shadow-inner">
             <div className="flex justify-between items-center text-xs font-mono">
