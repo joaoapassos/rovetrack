@@ -82,7 +82,7 @@ function App(): React.JSX.Element {
         className="w-full max-w-xl flex flex-col gap-5 bg-[#222222] border border-[#32363f] p-6 rounded-md shadow-2xl space-y-6"
       >
         <div className="space-y-2 flex flex-col gap-2">
-          <label className="text-xs font-bold text-[#8b949e] uppercase tracking-wider block">Coordenadas (Link)</label>
+          <label className="text-xs font-bold text-[#8b949e] uppercase tracking-wider block">URL (Video ou Playlist)</label>
           <input
             {...register('url')}
             disabled={isProcessing}
@@ -93,7 +93,7 @@ function App(): React.JSX.Element {
         </div>
 
         <div className="space-y-2 flex flex-col gap-2">
-          <label className="text-xs font-bold text-[#8b949e] uppercase tracking-wider block">Acampamento (Destino)</label>
+          <label className="text-xs font-bold text-[#8b949e] uppercase tracking-wider block">Salvar em</label>
           <div className="flex gap-2">
             <input
               {...register('outputDir')}
@@ -160,7 +160,7 @@ function App(): React.JSX.Element {
               : 'bg-[#A2ECFB] text-[#1b1b1f] hover:bg-[#8bd6e5] shadow-[0_0_15px_rgba(162,236,251,0.2)]'
           }`}
         >
-          {isProcessing ? 'Extração em Andamento...' : 'Iniciar Extração'}
+          {isProcessing ? 'Andamento...' : 'Iniciar'}
         </button>
       </form>
 
