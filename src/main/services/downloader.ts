@@ -1,6 +1,7 @@
 import { join } from 'node:path'
-import ffmpegPath from 'ffmpeg-static'
-import { exec } from 'yt-dlp-exec'
+import { app } from 'electron'
+import ffmpegStatic from 'ffmpeg-static'
+import { create } from 'yt-dlp-exec'
 
 
 /**
@@ -16,12 +17,28 @@ export async function downloadRawFiles(
   config: TrackPayload, 
   updateTelemetry: (update: Partial<PipelineState>) => void
 ): Promise<void> {
+  let ffmpegPath = ffmpegStatic;
+  
+  // 2. Cria o caminho exato para o binário do yt-dlp dependendo do sistema operacional
+  const ytDlpBinaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
+  let ytDlpPath = join(app.getAppPath(), 'node_modules', 'yt-dlp-exec', 'bin', ytDlpBinaryName);
+
+  // 3. Atualiza os caminhos para a pasta "unpacked" se a aplicação estiver em produção
+  if (app.isPackaged) {
+    if (ffmpegPath) ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked');
+    ytDlpPath = ytDlpPath.replace('app.asar', 'app.asar.unpacked');
+  }
+
   if (!ffmpegPath) throw new Error('Binário do FFmpeg não encontrado no sistema.')
+
+  // 4. Cria uma instância customizada do yt-dlp apontando para o arquivo solto
+  const customYtDlp = create(ytDlpPath);
 
   return new Promise((resolve, reject) => {
     updateTelemetry({ message: '[RoveTrack] Iniciando motor yt-dlp em segundo plano...' })
 
-    const subprocess = exec(config.url, {
+    // 5. Use 'customYtDlp.exec' no lugar de chamar o 'exec' direto
+    const subprocess = customYtDlp.exec(config.url, {
       extractAudio: true,
       audioFormat: 'mp3',
       audioQuality: 0,

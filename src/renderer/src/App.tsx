@@ -139,7 +139,7 @@ function App(): React.JSX.Element {
             </div>
             
             <div className="flex justify-between items-center text-xs font-mono">
-                <span className="text-[#a0a4a8] truncate max-w-[80%]">
+                <span className="text-[#a0a4a8] max-w-[80%]" title={telemetry.message}>
                   {telemetry.message}
                 </span>
                 <span className="text-[#515c67] ml-2 shrink-0">
