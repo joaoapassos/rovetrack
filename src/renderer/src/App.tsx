@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { calculateGlobalProgress } from './utils'
 import Icon from './assets/icon.png';
+import notificationSound from './assets/notification.mp3';
 
 const schema = z.object({
   url: z.url('É necessário um link válido do YouTube.'),
@@ -44,6 +45,18 @@ function App(): React.JSX.Element {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [telemetry])
   // ----------------------------
+
+  // --- Efeito de Áudio (Notificação Tática) ---
+  useEffect(() => {
+    if (telemetry?.status === 'success' || telemetry?.status === 'error') {
+      const audio = new Audio(notificationSound);
+      audio.volume = 0.5; // Ajuste o volume se o mp3 for muito alto (0.0 a 1.0)
+      audio.play().catch(e => console.log('Erro ao reproduzir áudio:', e));
+    } else {
+      // Pode adicionar um errorSoundUrl se quiser um som diferente para falhas!
+    }
+  }, [telemetry?.status])
+  // --------------------------------------------
 
   const handleSelectFolder = async () => {
     const folder = await window.api.selectFolder()

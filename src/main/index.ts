@@ -102,7 +102,8 @@ app.whenReady().then(() => {
         new Notification({
           title: 'RoveTrack',
           body: 'Donwload concluido com sucesso!',
-          icon: icon // Usa o ícone do projeto na notificação
+          icon: icon,
+          silent: true,
         }).show();
       }
 
@@ -112,7 +113,8 @@ app.whenReady().then(() => {
         new Notification({
           title: 'RoveTrack: Falha Crítica',
           body: 'Ocorreu um erro no donwload. Verifique os registos no painel.',
-          icon: icon
+          icon: icon,
+          silent: true,
         }).show();
       }
       
