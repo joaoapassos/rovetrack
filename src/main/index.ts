@@ -10,6 +10,7 @@ import {
   dialog,
   ipcMain,
   shell, 
+  Notification
 } from 'electron'
 import icon from '../../resources/icon.png?asset'
 import { processAudioPipeline } from './pipeline'
@@ -90,9 +91,34 @@ app.whenReady().then(() => {
    * e aguarda a finalização para retornar o sinal de sucesso ao React.
    */
   ipcMain.handle('audio:process', async (event, payload: TrackPayload) => {
-    await processAudioPipeline(payload, (state: PipelineState) => {
-      event.sender.send('audio:telemetry', state)
-    });
+    try {
+      // Executa a forja completa
+      await processAudioPipeline(payload, (state: PipelineState) => {
+        event.sender.send('audio:telemetry', state)
+      });
+
+      // Se passou por tudo sem quebrar, dispara a notificação tática de sucesso
+      if (Notification.isSupported()) {
+        new Notification({
+          title: 'RoveTrack',
+          body: 'Donwload concluido com sucesso!',
+          icon: icon // Usa o ícone do projeto na notificação
+        }).show();
+      }
+
+    } catch (error) {
+      // Se a expedição falhar por timeout ou erro crítico
+      if (Notification.isSupported()) {
+        new Notification({
+          title: 'RoveTrack: Falha Crítica',
+          body: 'Ocorreu um erro no donwload. Verifique os registos no painel.',
+          icon: icon
+        }).show();
+      }
+      
+      // Lança o erro de volta para a Promise do front-end
+      throw error;
+    }
   })
   // --------------------------------
 
