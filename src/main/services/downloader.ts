@@ -50,6 +50,7 @@ export async function downloadRawFiles(
       noWarnings: true,
       newline: true,
       noColor: true,
+      ignoreErrors: true,
     })
     
     let timeout: NodeJS.Timeout
@@ -97,12 +98,14 @@ export async function downloadRawFiles(
 
     subprocess.stderr?.on('data', (data: Buffer) => {
       resetTimeout()
-      console.warn(`[yt-dlp AVISO]: ${data.toString().trim()}`)
+      const errorMsg = data.toString().trim()
+      console.warn(`[yt-dlp AVISO]: ${errorMsg}`)
+      updateTelemetry({ message: `[AVISO DE ERRO]: ${errorMsg}` })
     })
 
     subprocess.on('close', (code) => {
       clearTimeout(timeout)
-      if (code === 0) resolve() 
+      if (code === 0 || code === 1) resolve() 
       else reject(new Error(`O motor yt-dlp abortou com código de saída: ${code}`))
     })
 
