@@ -4,9 +4,15 @@ interface ReportModalProps {
   open: boolean
   report: PipelineReport
   onClose: () => void
+  onOpenHistory: () => void
 }
 
-export function ReportModal({ open, report, onClose }: ReportModalProps): React.JSX.Element | null {
+export function ReportModal({
+  open,
+  report,
+  onClose,
+  onOpenHistory
+}: ReportModalProps): React.JSX.Element | null {
   useEffect(() => {
     if (!open) return
 
@@ -90,7 +96,14 @@ export function ReportModal({ open, report, onClose }: ReportModalProps): React.
           </div>
         </div>
 
-        <footer className="flex justify-end border-t border-[#32363f] bg-[#1b1b1f] px-6 py-4">
+        <footer className="flex items-center justify-between gap-3 border-t border-[#32363f] bg-[#1b1b1f] px-6 py-4">
+          <button
+            className="border border-[#414853] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0a4a8] transition-colors hover:border-[#A2ECFB] hover:text-[#A2ECFB]"
+            onClick={onOpenHistory}
+            type="button"
+          >
+            Ver todo o histórico
+          </button>
           <button
             className="border border-[#A2ECFB] bg-[#A2ECFB] px-6 py-3 text-xs font-black uppercase tracking-[0.16em] text-[#1b1b1f] transition-colors hover:bg-[#8bd6e5] focus:outline-none focus:ring-2 focus:ring-[#A2ECFB]/40"
             onClick={onClose}

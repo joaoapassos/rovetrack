@@ -7,6 +7,7 @@ import { readJsonFile } from '@main/utils'
 interface YtInfoJson {
   title?: string
   uploader?: string
+  playlist_title?: string
 }
 
 /**
@@ -17,12 +18,16 @@ interface YtInfoJson {
  * @param coverPath Caminho absoluto da imagem de capa já processada.
  * @returns Um objeto TrackMetadata perfeitamente estruturado.
  */
-export async function extractMetadataFromJson(jsonPath: string, coverPath: string): Promise<TrackMetadata> {
+export async function extractMetadataFromJson(
+  jsonPath: string,
+  coverPath: string
+): Promise<TrackMetadata> {
   const infoData = await readJsonFile<YtInfoJson>(jsonPath)
-  
+
   return {
     title: infoData.title || 'Título Desconhecido',
     artist: infoData.uploader || 'Artista Desconhecido',
-    coverImagePath: coverPath
+    coverImagePath: coverPath,
+    playlistTitle: infoData.playlist_title
   }
 }

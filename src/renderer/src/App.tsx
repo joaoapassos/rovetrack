@@ -4,8 +4,10 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import Icon from './assets/icon.png'
 import notificationSound from './assets/notification.mp3'
+import { HistoryModal } from './components/HistoryModal'
 import { ReportModal } from './components/ReportModal'
 import { calculateGlobalProgress } from './utils'
+import { type DownloadHistoryEntry, saveDownloadHistory } from './utils/downloadHistory'
 
 const schema = z.object({
   url: z.url('É necessário um link válido do YouTube.'),
@@ -42,9 +44,19 @@ const readLastAudibleVolume = (currentVolume: number): number => {
   return currentVolume > 0 ? currentVolume : 50
 }
 
+interface ActiveHistoryAttempt {
+  id: string
+  url: string
+  outputDir: string
+  saved: boolean
+}
+
 function App(): React.JSX.Element {
   const [telemetry, setTelemetry] = useState<PipelineState | null>(null)
   const [isReportOpen, setIsReportOpen] = useState(false)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [historyVersion, setHistoryVersion] = useState(0)
+  const [selectedReport, setSelectedReport] = useState<PipelineReport | null>(null)
   const [completedOutputDir, setCompletedOutputDir] = useState('')
   const [notificationVolume, setNotificationVolume] = useState(readVolumePreference)
   const [nativeNotificationsEnabled, setNativeNotificationsEnabled] = useState(() =>
@@ -53,6 +65,7 @@ function App(): React.JSX.Element {
   const logEndRef = useRef<HTMLDivElement>(null)
   const notificationVolumeRef = useRef(notificationVolume)
   const lastAudibleVolumeRef = useRef(readLastAudibleVolume(notificationVolume))
+  const activeHistoryAttemptRef = useRef<ActiveHistoryAttempt | null>(null)
 
   const {
     register,
@@ -101,6 +114,7 @@ function App(): React.JSX.Element {
   // --- Efeito de Áudio (Notificação Tática) ---
   useEffect(() => {
     if (telemetry?.status === 'success' || telemetry?.status === 'error') {
+      setSelectedReport(telemetry.report)
       setIsReportOpen(true)
       if (notificationVolumeRef.current === 0) return
 
@@ -108,8 +122,39 @@ function App(): React.JSX.Element {
       audio.volume = notificationVolumeRef.current / 100
       audio.play().catch((error) => console.log('Erro ao reproduzir áudio:', error))
     }
-  }, [telemetry?.status])
+  }, [telemetry?.status, telemetry?.report])
   // --------------------------------------------
+
+  useEffect(() => {
+    if (telemetry?.status !== 'success' && telemetry?.status !== 'error') return
+
+    const attempt = activeHistoryAttemptRef.current
+    if (!attempt || attempt.saved) return
+    attempt.saved = true
+
+    const report = telemetry.report
+    const isPlaylist = Boolean(report.source?.playlistTitle) || report.total > 1
+    const firstTrackTitle = report.tracks.find((track) => track.title)?.title
+    const entry: DownloadHistoryEntry = {
+      id: attempt.id,
+      createdAt: new Date().toISOString(),
+      url: attempt.url,
+      outputDir: attempt.outputDir,
+      status: telemetry.status,
+      name:
+        report.source?.playlistTitle ??
+        report.source?.title ??
+        firstTrackTitle ??
+        (isPlaylist ? `Playlist com ${report.total} faixas` : 'Faixa sem título'),
+      kind: isPlaylist ? 'playlist' : 'track',
+      tracks: [...report.tracks],
+      report
+    }
+
+    saveDownloadHistory(entry)
+      .then(() => setHistoryVersion((version) => version + 1))
+      .catch((error) => console.error('Erro ao guardar histórico:', error))
+  }, [telemetry?.status, telemetry?.report])
 
   const handleSelectFolder = async () => {
     const folder = await window.api.selectFolder()
@@ -118,14 +163,21 @@ function App(): React.JSX.Element {
 
   const onSubmit = async (data: RoveFormData) => {
     setIsReportOpen(false)
+    setIsHistoryOpen(false)
     setCompletedOutputDir(data.outputDir)
+    activeHistoryAttemptRef.current = {
+      id: crypto.randomUUID(),
+      url: data.url,
+      outputDir: data.outputDir,
+      saved: false
+    }
     setTelemetry({
       status: 'preparing',
       message: 'A iniciar os motores...',
       progress: 0,
       step: { current: 1, total: 4 },
       batch: { current: 1, total: 1 },
-      report: { total: 0, succeeded: 0, failed: 0, errors: [] }
+      report: { total: 0, succeeded: 0, failed: 0, errors: [], tracks: [] }
     })
     try {
       await window.api.processAudio({ url: data.url, outputDir: data.outputDir })
@@ -164,8 +216,35 @@ function App(): React.JSX.Element {
     setNotificationVolume(nextVolume)
   }
 
+  const handleOpenHistory = () => {
+    setIsReportOpen(false)
+    setIsHistoryOpen(true)
+  }
+
+  const handleRetryDownload = (entry: DownloadHistoryEntry) => {
+    setValue('url', entry.url, { shouldValidate: true })
+    setValue('outputDir', entry.outputDir, { shouldValidate: true })
+    void onSubmit({ url: entry.url, outputDir: entry.outputDir })
+  }
+
+  const handleViewHistoricalReport = (report: PipelineReport) => {
+    setIsHistoryOpen(false)
+    setSelectedReport(report)
+    setIsReportOpen(true)
+  }
+
   return (
     <main className="min-h-screen bg-[#1b1b1f] text-[#f8f8f8] flex flex-col gap-10 items-center justify-center p-6 select-none font-sans">
+      <button
+        type="button"
+        aria-label="Abrir histórico de downloads"
+        title="Abrir histórico de downloads"
+        onClick={() => setIsHistoryOpen(true)}
+        className="fixed left-5 top-5 z-40 flex h-10 w-10 items-center justify-center border border-[#32363f] bg-[#222222] text-[#a0a4a8] transition-colors hover:border-[#A2ECFB] hover:text-[#A2ECFB] focus:outline-none focus:ring-2 focus:ring-[#A2ECFB]/30"
+      >
+        <HistoryIcon />
+      </button>
+
       <fieldset
         className="fixed right-5 top-5 z-40 flex gap-2"
         aria-label="Controlos de notificação"
@@ -354,7 +433,10 @@ function App(): React.JSX.Element {
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => setIsReportOpen(true)}
+              onClick={() => {
+                setSelectedReport(telemetry.report)
+                setIsReportOpen(true)
+              }}
               className="w-full border border-[#A2ECFB] bg-[#222222] py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#A2ECFB] transition-colors hover:bg-[#2a3033] focus:outline-none focus:ring-2 focus:ring-[#A2ECFB]/30"
             >
               Ver relatório
@@ -382,13 +464,23 @@ function App(): React.JSX.Element {
         </a>
       </footer>
 
-      {telemetry?.report && (
+      {selectedReport && (
         <ReportModal
           open={isReportOpen}
-          report={telemetry.report}
+          report={selectedReport}
           onClose={() => setIsReportOpen(false)}
+          onOpenHistory={handleOpenHistory}
         />
       )}
+
+      <HistoryModal
+        key={historyVersion}
+        open={isHistoryOpen}
+        isProcessing={isProcessing}
+        onClose={() => setIsHistoryOpen(false)}
+        onRetry={handleRetryDownload}
+        onViewReport={handleViewHistoricalReport}
+      />
     </main>
   )
 }
@@ -429,6 +521,22 @@ function BellIcon({ blocked }: { blocked: boolean }): React.JSX.Element {
         d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"
       />
       {blocked && <path strokeLinecap="square" d="M4 4 20 20" />}
+    </svg>
+  )
+}
+
+function HistoryIcon(): React.JSX.Element {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-5 w-5"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path strokeLinecap="square" strokeLinejoin="miter" d="M4 5h16v15H4V5Zm3-3h10v3H7V2Z" />
+      <path strokeLinecap="square" d="M8 10h8M8 14h8" />
     </svg>
   )
 }

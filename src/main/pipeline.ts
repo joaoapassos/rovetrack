@@ -10,7 +10,8 @@ const emptyReport = (): PipelineReport => ({
   total: 0,
   succeeded: 0,
   failed: 0,
-  errors: []
+  errors: [],
+  tracks: []
 })
 
 export async function processAudioPipeline(
@@ -33,7 +34,12 @@ export async function processAudioPipeline(
     // Copiar também as estruturas aninhadas evita enviar referências mutáveis pelo IPC.
     onTelemetry({
       ...state,
-      report: { ...state.report, errors: [...state.report.errors] }
+      report: {
+        ...state.report,
+        errors: [...state.report.errors],
+        tracks: [...state.report.tracks],
+        ...(state.report.source && { source: { ...state.report.source } })
+      }
     })
   }
 
@@ -57,7 +63,12 @@ export async function processAudioPipeline(
       total: downloadReport.total,
       succeeded: 0,
       failed: downloadReport.errors.length,
-      errors: [...downloadReport.errors]
+      errors: [...downloadReport.errors],
+      tracks: downloadReport.errors.map((error) => ({
+        trackId: error.trackId,
+        title: error.title,
+        status: 'error'
+      }))
     }
 
     updateState({
@@ -94,18 +105,24 @@ export async function processAudioPipeline(
 
       // Uma faixa inválida não impede que as restantes sejam processadas.
       try {
+        const coverPath = join(workspaceDir, `${baseName}_cover.jpg`)
+        const metadata = await extractMetadataFromJson(infoPath, coverPath)
+        title = metadata.title
+        report.source = {
+          ...report.source,
+          ...(report.total === 1 && { title: metadata.title }),
+          ...(metadata.playlistTitle && { playlistTitle: metadata.playlistTitle })
+        }
+
         const originalImage = await findCoverImage(workspaceDir, baseName, jsonFile)
         if (!originalImage) throw new Error('Imagem de capa não encontrada.')
 
         const imagePath = join(workspaceDir, originalImage)
-        const coverPath = join(workspaceDir, `${baseName}_cover.jpg`)
 
         updateState({ message: '  └─ A recortar a capa (1:1)...' })
         await formatCoverImage(imagePath, coverPath)
 
         updateState({ message: '  └─ A injetar metadados ID3...' })
-        const metadata = await extractMetadataFromJson(infoPath, coverPath)
-        title = metadata.title
         injectId3Tags(mp3Path, metadata)
 
         updateState({ message: '  └─ A transferir ficheiro final...' })
@@ -113,11 +130,13 @@ export async function processAudioPipeline(
         await moveOrRenameFile(mp3Path, join(outputDir, `${safeTitle}.mp3`))
 
         report.succeeded += 1
+        report.tracks.push({ trackId, title: metadata.title, status: 'success' })
         updateState({ metadata: { title: safeTitle }, report })
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error)
         report.failed += 1
         report.errors.push({ trackId, title, reason })
+        report.tracks.push({ trackId, title, status: 'error' })
         updateState({ report, message: `[FALHA NA FAIXA ${trackId}] ${reason}` })
       }
     }
@@ -128,6 +147,10 @@ export async function processAudioPipeline(
       report.errors.push({
         trackId: `item-desconhecido-${index + 1}`,
         reason: 'O yt-dlp saltou esta faixa sem devolver detalhes adicionais.'
+      })
+      report.tracks.push({
+        trackId: `item-desconhecido-${index + 1}`,
+        status: 'error'
       })
       report.failed += 1
     }
@@ -150,12 +173,21 @@ export async function processAudioPipeline(
     })
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
-    const report = { ...state.report, errors: [...state.report.errors] }
+    const report = {
+      ...state.report,
+      errors: [...state.report.errors],
+      tracks: [...state.report.tracks]
+    }
 
     if (report.errors.length === 0) {
       report.total = Math.max(report.total, 1)
       report.failed = Math.max(report.failed, 1)
       report.errors.push({ trackId: state.metadata?.title ?? 'pipeline', reason })
+      report.tracks.push({
+        trackId: state.metadata?.title ?? 'pipeline',
+        title: state.metadata?.title,
+        status: 'error'
+      })
     }
 
     updateState({

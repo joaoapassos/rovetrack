@@ -8,12 +8,24 @@ declare interface PipelineReportError {
   reason: string
 }
 
+/** Faixa identificada durante uma tentativa de extração. */
+declare interface PipelineReportTrack {
+  trackId: string
+  title?: string
+  status: 'success' | 'error'
+}
+
 /** Resumo acumulado de uma execução do pipeline. */
 declare interface PipelineReport {
   total: number
   succeeded: number
   failed: number
   errors: PipelineReportError[]
+  tracks: PipelineReportTrack[]
+  source?: {
+    title?: string
+    playlistTitle?: string
+  }
 }
 
 /** Representa o estado atualizado da máquina de extração. */

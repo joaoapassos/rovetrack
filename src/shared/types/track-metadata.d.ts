@@ -19,4 +19,7 @@ declare interface TrackMetadata {
    * @example "C:/Users/Nome/Downloads/RoveTrack/temp_cover.jpg"
    */
   coverImagePath: string
+
+  /** Nome da playlist de origem, quando a faixa fizer parte de uma playlist. */
+  playlistTitle?: string
 }
