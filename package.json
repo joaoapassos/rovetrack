@@ -1,6 +1,6 @@
 {
   "name": "Rovetrack",
-  "version": "0.1.0",
+  "version": "0.2.0-beta",
   "description": "Software capable of downloading music (or any audio) using the `yt-dlp-exec` library, along with metadata such as the title and cover art, to ensure the music file has the correct title and album art.",
   "main": "./out/main/index.js",
   "author": "João Alves Passos",
