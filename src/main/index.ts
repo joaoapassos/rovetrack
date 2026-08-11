@@ -15,6 +15,7 @@ import {
 import icon from '../../resources/icon.png?asset'
 import { processAudioPipeline } from './pipeline'
 
+let nativeNotificationsEnabled = true
 
 
 function createWindow(): void {
@@ -92,6 +93,10 @@ app.whenReady().then(() => {
     if (errorMessage) throw new Error(`Não foi possível abrir o diretório: ${errorMessage}`)
   })
 
+  ipcMain.handle('notifications:setEnabled', (_event, enabled: boolean) => {
+    nativeNotificationsEnabled = enabled
+  })
+
   /**
    * Escuta o evento 'audio:process' disparado pelo front-end.
    * Recebe o payload tipado, engata o motor de extração (Pipeline)
@@ -105,7 +110,7 @@ app.whenReady().then(() => {
       });
 
       // Se passou por tudo sem quebrar, dispara a notificação tática de sucesso
-      if (Notification.isSupported()) {
+      if (nativeNotificationsEnabled && Notification.isSupported()) {
         new Notification({
           title: 'RoveTrack',
           body: 'Donwload concluido com sucesso!',
@@ -116,7 +121,7 @@ app.whenReady().then(() => {
 
     } catch (error) {
       // Se a expedição falhar por timeout ou erro crítico
-      if (Notification.isSupported()) {
+      if (nativeNotificationsEnabled && Notification.isSupported()) {
         new Notification({
           title: 'RoveTrack: Falha Crítica',
           body: 'Ocorreu um erro no donwload. Verifique os registos no painel.',

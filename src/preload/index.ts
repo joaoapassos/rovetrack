@@ -5,8 +5,11 @@ import { contextBridge, ipcRenderer } from 'electron'
 const api = {
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
   openFolder: (path: string) => ipcRenderer.invoke('shell:openFolder', path),
+  setNativeNotificationsEnabled: (enabled: boolean) =>
+    ipcRenderer.invoke('notifications:setEnabled', enabled),
   processAudio: (payload: TrackPayload) => ipcRenderer.invoke('audio:process', payload),
-  onPipelineTelemetry: (callback) => ipcRenderer.on('audio:telemetry', (_event, state) => callback(state))
+  onPipelineTelemetry: (callback) =>
+    ipcRenderer.on('audio:telemetry', (_event, state) => callback(state))
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
