@@ -3,93 +3,117 @@ import { app } from 'electron'
 import ffmpegStatic from 'ffmpeg-static'
 import { create } from 'yt-dlp-exec'
 
+export interface DownloadReport {
+  total: number
+  errors: PipelineReportError[]
+}
+
+/** Remove o prefixo técnico sem apagar a mensagem útil devolvida pelo yt-dlp. */
+function normaliseYtDlpError(line: string): string {
+  return line.replace(/^ERROR:\s*/i, '').trim()
+}
+
+/** Tenta obter o ID a partir de mensagens como "[youtube] dQw4w9WgXcQ: ...". */
+function extractVideoId(line: string): string | undefined {
+  return line.match(/\[(?:youtube|youtu\.be)\]\s+([\w-]{6,}):/i)?.[1]
+}
 
 /**
- * Orquestra o download bruto do YouTube utilizando um subprocesso isolado.
- * Implementa telemetria em tempo real via stdout e um sistema de timeout crítico
- * para evitar congelamentos (hangs) em caso de falha severa de rede.
- *
- * @param config Objeto contendo a URL de origem e o diretório (Workspace temporário) de destino.
- * @returns Uma Promise que é resolvida apenas quando o subprocesso finaliza com código 0 (sucesso).
- * @throws {Error} Se o binário do FFmpeg não for encontrado, se houver timeout ou se o processo falhar.
+ * Descarrega os ficheiros brutos e devolve as falhas não fatais que o
+ * `--ignore-errors` permite ao yt-dlp ultrapassar.
  */
 export async function downloadRawFiles(
-  config: TrackPayload, 
+  config: TrackPayload,
   updateTelemetry: (update: Partial<PipelineState>) => void
-): Promise<void> {
-  let ffmpegPath = ffmpegStatic;
-  
-  // 2. Cria o caminho exato para o binário do yt-dlp dependendo do sistema operacional
-  const ytDlpBinaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
-  let ytDlpPath = join(app.getAppPath(), 'node_modules', 'yt-dlp-exec', 'bin', ytDlpBinaryName);
+): Promise<DownloadReport> {
+  let ffmpegPath = ffmpegStatic
+  const ytDlpBinaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'
+  let ytDlpPath = join(app.getAppPath(), 'node_modules', 'yt-dlp-exec', 'bin', ytDlpBinaryName)
 
-  // 3. Atualiza os caminhos para a pasta "unpacked" se a aplicação estiver em produção
   if (app.isPackaged) {
-    if (ffmpegPath) ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked');
-    ytDlpPath = ytDlpPath.replace('app.asar', 'app.asar.unpacked');
+    if (ffmpegPath) ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked')
+    ytDlpPath = ytDlpPath.replace('app.asar', 'app.asar.unpacked')
   }
 
   if (!ffmpegPath) throw new Error('Binário do FFmpeg não encontrado no sistema.')
 
-  // 4. Cria uma instância customizada do yt-dlp apontando para o arquivo solto
-  const customYtDlp = create(ytDlpPath);
+  const customYtDlp = create(ytDlpPath)
 
   return new Promise((resolve, reject) => {
     updateTelemetry({ message: '[RoveTrack] Iniciando motor yt-dlp em segundo plano...' })
 
-    // 5. Use 'customYtDlp.exec' no lugar de chamar o 'exec' direto
     const subprocess = customYtDlp.exec(config.url, {
       extractAudio: true,
       audioFormat: 'mp3',
       audioQuality: 0,
       writeThumbnail: true,
       writeInfoJson: true,
-      ffmpegLocation: ffmpegPath ?? "",
+      ffmpegLocation: ffmpegPath,
       output: join(config.outputDir, 'rovetrack_temp_%(id)s.%(ext)s'),
       noCheckCertificate: true,
       noWarnings: true,
       newline: true,
       noColor: true,
-      ignoreErrors: true,
+      ignoreErrors: true
     })
-    
+
     let timeout: NodeJS.Timeout
+    let currentItem = 1
+    let currentVideoId: string | undefined
+    let total = 1
+    let stderrBuffer = ''
+    const errorsByTrack = new Map<string, PipelineReportError>()
 
     const resetTimeout = () => {
       clearTimeout(timeout)
-      timeout = setTimeout(() => {
-        subprocess.kill('SIGKILL')
-        reject(new Error('[downloader] Timeout Crítico: A rede falhou.'))
-      }, 3 * 60 * 1000)
+      timeout = setTimeout(
+        () => {
+          subprocess.kill('SIGKILL')
+          reject(new Error('[downloader] Timeout crítico: a rede deixou de responder.'))
+        },
+        3 * 60 * 1000
+      )
+    }
+
+    /** Guarda apenas linhas ERROR; avisos do ffmpeg não contam como faixas falhadas. */
+    const captureErrorLine = (line: string) => {
+      if (!/^ERROR:/i.test(line.trim())) return
+
+      const reason = normaliseYtDlpError(line.trim())
+      const parsedId = extractVideoId(reason)
+      const trackId = parsedId ?? currentVideoId ?? `item-${currentItem}`
+
+      errorsByTrack.set(trackId, { trackId, reason })
+      updateTelemetry({ message: `[FALHA NA FAIXA ${currentItem}] ${reason}` })
+    }
+
+    const flushStderr = () => {
+      if (stderrBuffer.trim()) captureErrorLine(stderrBuffer)
+      stderrBuffer = ''
     }
 
     resetTimeout()
-    
+
     subprocess.stdout?.on('data', (data: Buffer) => {
-      resetTimeout() 
+      resetTimeout()
       const message = data.toString().trim()
       console.log(message)
-      
-      let progress: number | undefined
-      let batch: { current: number, total: number } | undefined
 
-      // Capturar percentagem de download
-      const progressMatch = message.match(/\[download\]\s+([\d\.]+)%/)
-      if (progressMatch) {
-        progress = parseFloat(progressMatch[1])
-      }
-
-      // Capturar índice da playlist
+      currentVideoId = extractVideoId(message) ?? currentVideoId
+      const progressMatch = message.match(/\[download\]\s+([\d.]+)%/)
       const batchMatch = message.match(/Downloading item (\d+) of (\d+)/)
+
       if (batchMatch) {
-        batch = { current: parseInt(batchMatch[1]), total: parseInt(batchMatch[2]) }
+        currentItem = Number.parseInt(batchMatch[1], 10)
+        total = Number.parseInt(batchMatch[2], 10)
+        currentVideoId = undefined
       }
 
       if (progressMatch || batchMatch) {
         updateTelemetry({
           message: `  └─ ${message.replace(/\[download\]|\[youtube:tab\]/, '').trim()}`,
-          ...(progress !== undefined && { progress }),
-          ...(batch !== undefined && { batch })
+          ...(progressMatch && { progress: Number.parseFloat(progressMatch[1]) }),
+          ...(batchMatch && { batch: { current: currentItem, total } })
         })
       } else if (message.includes('[ExtractAudio]')) {
         updateTelemetry({ message: '  └─ Extraindo áudio (FFmpeg em ação)...' })
@@ -98,20 +122,32 @@ export async function downloadRawFiles(
 
     subprocess.stderr?.on('data', (data: Buffer) => {
       resetTimeout()
-      const errorMsg = data.toString().trim()
-      console.warn(`[yt-dlp AVISO]: ${errorMsg}`)
-      updateTelemetry({ message: `[AVISO DE ERRO]: ${errorMsg}` })
+      stderrBuffer += data.toString()
+      const lines = stderrBuffer.split(/\r?\n/)
+      stderrBuffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        console.warn(`[yt-dlp]: ${line}`)
+        captureErrorLine(line)
+      }
     })
 
     subprocess.on('close', (code) => {
       clearTimeout(timeout)
-      if (code === 0 || code === 1) resolve() 
-      else reject(new Error(`O motor yt-dlp abortou com código de saída: ${code}`))
+      flushStderr()
+
+      // O código 1 é esperado quando --ignore-errors salta itens de uma playlist.
+      if (code === 0 || code === 1) {
+        resolve({ total, errors: [...errorsByTrack.values()] })
+        return
+      }
+
+      reject(new Error(`O motor yt-dlp abortou com código de saída: ${code}`))
     })
 
-    subprocess.on('error', (err) => {
+    subprocess.on('error', (error) => {
       clearTimeout(timeout)
-      reject(err)
+      reject(error)
     })
   })
 }

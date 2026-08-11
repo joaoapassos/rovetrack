@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 // Custom APIs for renderer
 const api = {
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+  openFolder: (path: string) => ipcRenderer.invoke('shell:openFolder', path),
   processAudio: (payload: TrackPayload) => ipcRenderer.invoke('audio:process', payload),
   onPipelineTelemetry: (callback) => ipcRenderer.on('audio:telemetry', (_event, state) => callback(state))
 }

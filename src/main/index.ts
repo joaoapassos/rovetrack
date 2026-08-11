@@ -85,6 +85,13 @@ app.whenReady().then(() => {
     return filePaths[0]
   })
 
+  ipcMain.handle('shell:openFolder', async (_event, path: string) => {
+    if (!path) throw new Error('O diretório de destino não foi definido.')
+
+    const errorMessage = await shell.openPath(path)
+    if (errorMessage) throw new Error(`Não foi possível abrir o diretório: ${errorMessage}`)
+  })
+
   /**
    * Escuta o evento 'audio:process' disparado pelo front-end.
    * Recebe o payload tipado, engata o motor de extração (Pipeline)

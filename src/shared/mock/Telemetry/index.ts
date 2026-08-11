@@ -6,7 +6,8 @@ export const mockTelemetryDownloading = {
   message: '  └─ 45.5% of 10.2MiB at 2.5MiB/s ETA 00:04',
   progress: 45.5,
   step: { current: 2, total: 4 },
-  batch: { current: 1, total: 3 }
+  batch: { current: 1, total: 3 },
+  report: { total: 3, succeeded: 0, failed: 0, errors: [] }
 }
 
 // 2. Simulando a etapa de Forja (Injetando metadados na segunda faixa de três)
@@ -18,7 +19,8 @@ export const mockTelemetryForging = {
   batch: { current: 2, total: 3 },
   metadata: {
     title: 'Linkin Park - Numb'
-  }
+  },
+  report: { total: 3, succeeded: 1, failed: 0, errors: [] }
 }
 
 // 3. Simulando o Sucesso Final (Tudo concluído)
@@ -27,7 +29,8 @@ export const mockTelemetrySuccess = {
   message: 'Expedição concluída com SUCESSO ABSOLUTO!',
   progress: 100,
   step: { current: 4, total: 4 },
-  batch: { current: 3, total: 3 }
+  batch: { current: 3, total: 3 },
+  report: { total: 3, succeeded: 3, failed: 0, errors: [] }
 }
 
 // 4. Simulando uma Falha Crítica (Erro de rede ou FFmpeg)
@@ -36,5 +39,11 @@ export const mockTelemetryError = {
   message: '[FALHA CRÍTICA] Timeout Crítico: A rede falhou.',
   progress: 0,
   step: { current: 2, total: 4 },
-  batch: { current: 1, total: 1 }
+  batch: { current: 1, total: 1 },
+  report: {
+    total: 1,
+    succeeded: 0,
+    failed: 1,
+    errors: [{ trackId: 'pipeline', reason: 'Timeout crítico: a rede falhou.' }]
+  }
 }

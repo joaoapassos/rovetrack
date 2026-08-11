@@ -10,6 +10,9 @@ declare global {
        * @returns Uma Promise com o caminho (path) absoluto da pasta selecionada, ou null se o usuário cancelar.
        */
       selectFolder: () => Promise<string | null>
+
+      /** Abre um diretório no explorador de ficheiros do sistema operativo. */
+      openFolder: (path: string) => Promise<void>
       
       /**
        * Envia as coordenadas (link e destino) para o motor Node.js iniciar a forja do áudio.

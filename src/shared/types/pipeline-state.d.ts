@@ -1,42 +1,38 @@
-/**
- * Representa o estado atualizado da máquina de extração.
- */
+/** Uma falha individual ocorrida durante o download ou pós-processamento. */
+declare interface PipelineReportError {
+  /** ID do vídeo no YouTube, ou um identificador da posição quando o ID não estiver disponível. */
+  trackId: string
+  /** Título, quando já tiver sido possível ler os metadados. */
+  title?: string
+  /** Mensagem limpa devolvida pelo yt-dlp ou pelo pós-processamento. */
+  reason: string
+}
+
+/** Resumo acumulado de uma execução do pipeline. */
+declare interface PipelineReport {
+  total: number
+  succeeded: number
+  failed: number
+  errors: PipelineReportError[]
+}
+
+/** Representa o estado atualizado da máquina de extração. */
 declare interface PipelineState {
-    /**
-     * Status geral para controlar a cor da UI e os Loaders
-     */
-    status: 'idle' | 'preparing' | 'downloading' | 'forging' | 'success' | 'error'
-    
-    /**
-     * A mensagem atual de log
-     */
-    message: string
-    
-    /**
-     * Progresso de download 0 a 100
-     */
-    progress: number,
-    
-    /**
-     * Controle de Etapas do motor
-     */
-    step: {
-        current: number
-        total: number
-    }
-    
-    /**
-     * Controle de Playlist
-     */
-    batch: {
-        current: number
-        total: number
-    }
-    
-    /**
-     * Detalhes extras, como o nome da música se ocorrer algum erro ou sucesso
-     */
-    metadata?: {
-        title?: string
-    }
+  status: 'idle' | 'preparing' | 'downloading' | 'forging' | 'success' | 'error'
+  message: string
+  /** Progresso do download, de 0 a 100. */
+  progress: number
+  step: {
+    current: number
+    total: number
+  }
+  batch: {
+    current: number
+    total: number
+  }
+  metadata?: {
+    title?: string
+  }
+  /** Relatório incremental; fica completo quando o estado for success ou error. */
+  report: PipelineReport
 }
