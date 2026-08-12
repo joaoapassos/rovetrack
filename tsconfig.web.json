@@ -4,14 +4,15 @@
     "src/renderer/src/env.d.ts",
     "src/renderer/src/**/*",
     "src/preload/*.d.ts",
-    "src/shared/**/*.d.ts", 
+    "src/shared/**/*.ts",
   ],
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",
     "paths": {
       "@renderer/*": ["./src/renderer/src/*"],
-      "@preload/*": ["./src/preload/*"]
+      "@preload/*": ["./src/preload/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   }
 }

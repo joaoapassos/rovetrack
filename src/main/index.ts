@@ -4,19 +4,37 @@ import {
   is,
   optimizer, 
 } from '@electron-toolkit/utils'
+import { calculateGlobalProgress } from '@shared/utils/calculateGlobalProgress'
 import {
   app, 
   BrowserWindow, 
   dialog,
   ipcMain,
+  Notification,
   shell, 
-  Notification
 } from 'electron'
 import icon from '../../resources/icon.png?asset'
+
 import { processAudioPipeline } from './pipeline'
+
 
 let nativeNotificationsEnabled = true
 
+function updateTaskbarProgress(mainWindow: BrowserWindow, state: PipelineState): void {
+  const progress = calculateGlobalProgress(state) / 100
+
+  if (state.status === 'error') {
+    mainWindow.setProgressBar(1, { mode: 'error' })
+    if (!mainWindow.isFocused()) mainWindow.flashFrame(true)
+    return
+  }
+
+  mainWindow.setProgressBar(progress, { mode: 'normal' })
+
+  if (state.status === 'success' && !mainWindow.isFocused()) {
+    mainWindow.flashFrame(true)
+  }
+}
 
 function createWindow(): void {
   // Create the browser window.
@@ -35,6 +53,10 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  mainWindow.on('focus', () => {
+    mainWindow.flashFrame(false)
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -103,9 +125,14 @@ app.whenReady().then(() => {
    * e aguarda a finalização para retornar o sinal de sucesso ao React.
    */
   ipcMain.handle('audio:process', async (event, payload: TrackPayload) => {
+    const mainWindow = BrowserWindow.fromWebContents(event.sender)
+
     try {
       // Executa a forja completa
       await processAudioPipeline(payload, (state: PipelineState) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          updateTaskbarProgress(mainWindow, state)
+        }
         event.sender.send('audio:telemetry', state)
       });
 
