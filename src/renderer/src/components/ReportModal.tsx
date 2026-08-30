@@ -87,8 +87,28 @@ export function ReportModal({
                       {error.title && (
                         <span className="break-all text-[#6f767d]">ID: {error.trackId}</span>
                       )}
+                      {error.category && (
+                        <span className="border border-[#414853] px-1.5 py-0.5 text-[9px] uppercase text-[#a0a4a8]">
+                          {categoryLabel(error.category)}
+                        </span>
+                      )}
                     </div>
-                    <p className="break-words leading-5 text-[#a0a4a8]">{error.reason}</p>
+                    <p className="break-words leading-5 text-[#f8f8f8]">{error.reason}</p>
+                    {error.suggestion && (
+                      <p className="mt-2 break-words border-l-2 border-[#A2ECFB]/60 pl-3 leading-5 text-[#a0a4a8]">
+                        Próxima ação: {error.suggestion}
+                      </p>
+                    )}
+                    {error.technicalDetails && (
+                      <details className="mt-3 text-[#6f767d]">
+                        <summary className="cursor-pointer text-[10px] uppercase tracking-wider hover:text-[#a0a4a8]">
+                          Ver detalhes técnicos
+                        </summary>
+                        <pre className="mt-2 whitespace-pre-wrap break-all border border-[#32363f] bg-[#0d0d0f] p-3 text-[10px] leading-4">
+                          {error.technicalDetails}
+                        </pre>
+                      </details>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -115,6 +135,20 @@ export function ReportModal({
       </section>
     </div>
   )
+}
+
+function categoryLabel(category: NonNullable<PipelineReportError['category']>): string {
+  const labels: Record<NonNullable<PipelineReportError['category']>, string> = {
+    access: 'Acesso do YouTube',
+    authentication: 'Autenticação',
+    availability: 'Indisponível',
+    configuration: 'Configuração',
+    network: 'Rede',
+    postprocessing: 'Finalização',
+    unknown: 'Não identificado'
+  }
+
+  return labels[category]
 }
 
 function Metric({

@@ -17,7 +17,7 @@ const emptyReport = (): PipelineReport => ({
 export async function processAudioPipeline(
   payload: TrackPayload,
   onTelemetry: (state: PipelineState) => void
-): Promise<void> {
+): Promise<PipelineReport> {
   const { url, outputDir } = payload
 
   const state: PipelineState = {
@@ -133,11 +133,23 @@ export async function processAudioPipeline(
         report.tracks.push({ trackId, title: metadata.title, status: 'success' })
         updateState({ metadata: { title: safeTitle }, report })
       } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error)
+        const technicalDetails = error instanceof Error ? error.message : String(error)
         report.failed += 1
-        report.errors.push({ trackId, title, reason })
+        report.errors.push({
+          trackId,
+          title,
+          reason: 'A faixa foi descarregada, mas não foi possível preparar o ficheiro MP3 final.',
+          category: 'postprocessing',
+          suggestion:
+            'Verifique se a pasta de destino permite escrita e se o ficheiro não está aberto noutro programa.',
+          technicalDetails,
+          retryable: true
+        })
         report.tracks.push({ trackId, title, status: 'error' })
-        updateState({ report, message: `[FALHA NA FAIXA ${trackId}] ${reason}` })
+        updateState({
+          report,
+          message: `[FALHA ISOLADA ${trackId}] Não foi possível finalizar o MP3; continuando...`
+        })
       }
     }
 
@@ -146,7 +158,11 @@ export async function processAudioPipeline(
     for (let index = 0; index < unaccounted; index++) {
       report.errors.push({
         trackId: `item-desconhecido-${index + 1}`,
-        reason: 'O yt-dlp saltou esta faixa sem devolver detalhes adicionais.'
+        reason: 'O yt-dlp ignorou esta faixa sem devolver detalhes suficientes.',
+        category: 'unknown',
+        suggestion:
+          'A faixa pode estar privada, removida ou temporariamente bloqueada. Confirme o link no navegador.',
+        retryable: true
       })
       report.tracks.push({
         trackId: `item-desconhecido-${index + 1}`,
@@ -171,6 +187,7 @@ export async function processAudioPipeline(
         ? `Expedição concluída com ${report.failed} faixa(s) falhada(s).`
         : 'Expedição concluída com sucesso.'
     })
+    return report
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     const report = {
@@ -182,7 +199,15 @@ export async function processAudioPipeline(
     if (report.errors.length === 0) {
       report.total = Math.max(report.total, 1)
       report.failed = Math.max(report.failed, 1)
-      report.errors.push({ trackId: state.metadata?.title ?? 'pipeline', reason })
+      report.errors.push({
+        trackId: state.metadata?.title ?? 'pipeline',
+        reason: 'O processamento foi interrompido por uma falha global.',
+        category: 'configuration',
+        suggestion:
+          'Verifique os detalhes técnicos, a conexão, a pasta de destino e a instalação do yt-dlp/FFmpeg.',
+        technicalDetails: reason,
+        retryable: true
+      })
       report.tracks.push({
         trackId: state.metadata?.title ?? 'pipeline',
         title: state.metadata?.title,

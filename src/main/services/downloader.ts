@@ -18,6 +18,86 @@ function extractVideoId(line: string): string | undefined {
   return line.match(/\[(?:youtube|youtu\.be)\]\s+([\w-]{6,}):/i)?.[1]
 }
 
+interface InterpretedError {
+  reason: string
+  category: NonNullable<PipelineReportError['category']>
+  suggestion: string
+  retryable: boolean
+}
+
+/** Converte as mensagens mais frequentes do yt-dlp em diagnósticos acionáveis. */
+function interpretYtDlpError(rawReason: string): InterpretedError {
+  const reason = rawReason.toLowerCase()
+
+  if (/http error 403|forbidden|po token/.test(reason)) {
+    return {
+      reason: 'O YouTube recusou o acesso ao ficheiro de áudio desta faixa (HTTP 403).',
+      category: 'access',
+      suggestion:
+        'A playlist continuará. Se a tentativa individual também falhar, atualize o yt-dlp e tente novamente; restrições mais fortes do YouTube podem exigir um provedor automático de PO Token.',
+      retryable: true
+    }
+  }
+
+  if (/sign in|login required|confirm your age|age.restrict|cookies/.test(reason)) {
+    return {
+      reason: 'Esta faixa exige autenticação ou confirmação de idade no YouTube.',
+      category: 'authentication',
+      suggestion:
+        'Abra o vídeo no navegador para confirmar a restrição. O RoveTrack ainda não importa cookies da sua conta; as outras faixas continuarão normalmente.',
+      retryable: false
+    }
+  }
+
+  if (/private video|members.only|premium|not available|unavailable|removed/.test(reason)) {
+    return {
+      reason: 'Esta faixa está privada, removida ou indisponível para a sua região/conta.',
+      category: 'availability',
+      suggestion:
+        'Confirme se o vídeo abre normalmente no navegador. Esta faixa será ignorada e o restante da playlist continuará.',
+      retryable: false
+    }
+  }
+
+  if (/http error 429|too many requests|rate.?limit/.test(reason)) {
+    return {
+      reason: 'O YouTube limitou temporariamente a quantidade de pedidos desta conexão (HTTP 429).',
+      category: 'network',
+      suggestion:
+        'Aguarde alguns minutos antes de repetir. Evite iniciar várias playlists ao mesmo tempo.',
+      retryable: true
+    }
+  }
+
+  if (/timed? out|timeout|connection|network|temporary failure|remote end closed/.test(reason)) {
+    return {
+      reason: 'A ligação foi interrompida durante o download desta faixa.',
+      category: 'network',
+      suggestion:
+        'Verifique a conexão e tente novamente. As faixas já descarregadas serão processadas normalmente.',
+      retryable: true
+    }
+  }
+
+  if (/requested format|no video formats|only images/.test(reason)) {
+    return {
+      reason: 'O YouTube não disponibilizou um formato de áudio compatível para esta faixa.',
+      category: 'availability',
+      suggestion:
+        'Atualize o yt-dlp e tente novamente. Se apenas esta faixa falhar, ela pode ter restrições específicas.',
+      retryable: true
+    }
+  }
+
+  return {
+    reason: 'O yt-dlp não conseguiu descarregar esta faixa.',
+    category: 'unknown',
+    suggestion:
+      'Consulte os detalhes técnicos abaixo. A falha foi isolada e não interromperá as outras faixas.',
+    retryable: true
+  }
+}
+
 /**
  * Descarrega os ficheiros brutos e devolve as falhas não fatais que o
  * `--ignore-errors` permite ao yt-dlp ultrapassar.
@@ -39,23 +119,37 @@ export async function downloadRawFiles(
 
   const customYtDlp = create(ytDlpPath)
 
+  // O wrapper ainda publica tipos antigos, embora encaminhe qualquer opção válida para o yt-dlp atual.
+  type CurrentYtDlpFlags = NonNullable<Parameters<typeof customYtDlp.exec>[1]> & {
+    extractorArgs: string
+    fileAccessRetries: number
+    fragmentRetries: number
+  }
+
+  const ytDlpFlags: CurrentYtDlpFlags = {
+    extractAudio: true,
+    audioFormat: 'mp3',
+    audioQuality: 0,
+    writeThumbnail: true,
+    writeInfoJson: true,
+    ffmpegLocation: ffmpegPath,
+    output: join(config.outputDir, 'rovetrack_temp_%(id)s.%(ext)s'),
+    newline: true,
+    noColor: true,
+    ignoreErrors: true,
+    abortOnError: false,
+    skipUnavailableFragments: true,
+    retries: 10,
+    fragmentRetries: 10,
+    fileAccessRetries: 5,
+    socketTimeout: 30,
+    extractorArgs: 'youtube:player_client=default,-android_vr'
+  }
+
   return new Promise((resolve, reject) => {
     updateTelemetry({ message: '[RoveTrack] Iniciando motor yt-dlp em segundo plano...' })
 
-    const subprocess = customYtDlp.exec(config.url, {
-      extractAudio: true,
-      audioFormat: 'mp3',
-      audioQuality: 0,
-      writeThumbnail: true,
-      writeInfoJson: true,
-      ffmpegLocation: ffmpegPath,
-      output: join(config.outputDir, 'rovetrack_temp_%(id)s.%(ext)s'),
-      noCheckCertificate: true,
-      noWarnings: true,
-      newline: true,
-      noColor: true,
-      ignoreErrors: true
-    })
+    const subprocess = customYtDlp.exec(config.url, ytDlpFlags)
 
     let timeout: NodeJS.Timeout
     let currentItem = 1
@@ -63,13 +157,70 @@ export async function downloadRawFiles(
     let total = 1
     let stderrBuffer = ''
     const errorsByTrack = new Map<string, PipelineReportError>()
+    const warningsByTrack = new Map<string, string[]>()
+
+    const currentTrackKey = () => currentVideoId ?? `item-${currentItem}`
+
+    const addWarning = (line: string) => {
+      if (!/^WARNING:/i.test(line.trim())) return
+
+      const warning = line.replace(/^WARNING:\s*/i, '').trim()
+      const parsedId = extractVideoId(warning)
+      const trackId = parsedId ?? currentTrackKey()
+      const warnings = warningsByTrack.get(trackId) ?? []
+      if (!warnings.includes(warning)) warnings.push(warning)
+      warningsByTrack.set(trackId, warnings)
+
+      if (/po token/i.test(warning)) {
+        updateTelemetry({
+          message:
+            `[AVISO NA FAIXA ${currentItem}] O YouTube limitou alguns formatos por falta de ` +
+            'PO Token; o motor tentará alternativas e continuará a playlist.'
+        })
+      } else if (/sign in|age.restrict|cookies|not available|unavailable/i.test(warning)) {
+        updateTelemetry({
+          message: `[AVISO NA FAIXA ${currentItem}] ${warning}`
+        })
+      }
+    }
+
+    const storeError = (trackId: string, technicalReason: string) => {
+      const interpreted = interpretYtDlpError(technicalReason)
+      const relatedWarnings = warningsByTrack.get(trackId) ?? warningsByTrack.get(currentTrackKey())
+      const technicalDetails = [...(relatedWarnings ?? []), technicalReason]
+        .filter((detail, index, details) => details.indexOf(detail) === index)
+        .join('\n')
+      const previous = errorsByTrack.get(trackId)
+
+      errorsByTrack.set(trackId, {
+        trackId,
+        reason: previous && previous.category !== 'unknown' ? previous.reason : interpreted.reason,
+        category:
+          previous && previous.category !== 'unknown' ? previous.category : interpreted.category,
+        suggestion: previous?.suggestion ?? interpreted.suggestion,
+        retryable: previous?.retryable ?? interpreted.retryable,
+        technicalDetails: [previous?.technicalDetails, technicalDetails]
+          .filter(Boolean)
+          .filter((detail, index, details) => details.indexOf(detail) === index)
+          .join('\n')
+      })
+
+      updateTelemetry({
+        message:
+          `[FALHA ISOLADA ${currentItem}/${total}] ${interpreted.reason} ` +
+          'Continuando com as próximas faixas...'
+      })
+    }
 
     const resetTimeout = () => {
       clearTimeout(timeout)
       timeout = setTimeout(
         () => {
+          storeError(
+            currentTrackKey(),
+            'Timeout: o yt-dlp não recebeu dados durante três minutos e a faixa foi interrompida.'
+          )
           subprocess.kill('SIGKILL')
-          reject(new Error('[downloader] Timeout crítico: a rede deixou de responder.'))
         },
         3 * 60 * 1000
       )
@@ -82,13 +233,14 @@ export async function downloadRawFiles(
       const reason = normaliseYtDlpError(line.trim())
       const parsedId = extractVideoId(reason)
       const trackId = parsedId ?? currentVideoId ?? `item-${currentItem}`
-
-      errorsByTrack.set(trackId, { trackId, reason })
-      updateTelemetry({ message: `[FALHA NA FAIXA ${currentItem}] ${reason}` })
+      storeError(trackId, reason)
     }
 
     const flushStderr = () => {
-      if (stderrBuffer.trim()) captureErrorLine(stderrBuffer)
+      if (stderrBuffer.trim()) {
+        addWarning(stderrBuffer)
+        captureErrorLine(stderrBuffer)
+      }
       stderrBuffer = ''
     }
 
@@ -128,6 +280,7 @@ export async function downloadRawFiles(
 
       for (const line of lines) {
         console.warn(`[yt-dlp]: ${line}`)
+        addWarning(line)
         captureErrorLine(line)
       }
     })
@@ -136,8 +289,11 @@ export async function downloadRawFiles(
       clearTimeout(timeout)
       flushStderr()
 
-      // O código 1 é esperado quando --ignore-errors salta itens de uma playlist.
-      if (code === 0 || code === 1) {
+      // Falhas conhecidas por faixa são não fatais: os artefactos válidos ainda serão processados.
+      if (code === 0 || code === 1 || errorsByTrack.size > 0) {
+        if (code !== 0 && errorsByTrack.size === 0) {
+          storeError('pipeline', `O yt-dlp encerrou com o código ${code ?? 'desconhecido'}.`)
+        }
         resolve({ total, errors: [...errorsByTrack.values()] })
         return
       }

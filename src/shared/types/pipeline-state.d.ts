@@ -6,6 +6,21 @@ declare interface PipelineReportError {
   title?: string
   /** Mensagem limpa devolvida pelo yt-dlp ou pelo pós-processamento. */
   reason: string
+  /** Área em que a falha ocorreu, usada para apresentar um diagnóstico mais claro. */
+  category?:
+    | 'access'
+    | 'authentication'
+    | 'availability'
+    | 'configuration'
+    | 'network'
+    | 'postprocessing'
+    | 'unknown'
+  /** Próxima ação recomendada ao utilizador. */
+  suggestion?: string
+  /** Mensagem técnica original, preservada para diagnóstico. */
+  technicalDetails?: string
+  /** Indica se repetir mais tarde pode resolver a falha. */
+  retryable?: boolean
 }
 
 /** Faixa identificada durante uma tentativa de extração. */

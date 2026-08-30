@@ -129,7 +129,7 @@ app.whenReady().then(() => {
 
     try {
       // Executa a forja completa
-      await processAudioPipeline(payload, (state: PipelineState) => {
+      const report = await processAudioPipeline(payload, (state: PipelineState) => {
         if (mainWindow && !mainWindow.isDestroyed()) {
           updateTaskbarProgress(mainWindow, state)
         }
@@ -139,8 +139,11 @@ app.whenReady().then(() => {
       // Se passou por tudo sem quebrar, dispara a notificação tática de sucesso
       if (nativeNotificationsEnabled && Notification.isSupported()) {
         new Notification({
-          title: 'RoveTrack',
-          body: 'Donwload concluido com sucesso!',
+          title: report.failed > 0 ? 'RoveTrack: concluído com falhas' : 'RoveTrack',
+          body:
+            report.failed > 0
+              ? `${report.succeeded} faixa(s) concluída(s); ${report.failed} ignorada(s). Consulte o relatório.`
+              : `${report.succeeded} faixa(s) descarregada(s) com sucesso.`,
           icon: icon,
           silent: true,
         }).show();

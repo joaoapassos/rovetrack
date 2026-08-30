@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
   - node_modules/ffmpeg-static/**
-  - node_modules/youtube-dl-exec/bin/**
+  - node_modules/yt-dlp-exec/bin/**
 win:
   executableName: rovetrack
 nsis:
