@@ -1,33 +1,14 @@
-import type { ElectronAPI } from '@electron-toolkit/preload'
+import type { ProcessMediaPayload } from '@shared/contracts/media'
+import type { PipelineState } from '@shared/contracts/pipeline'
 
 declare global {
   interface Window {
-    electron: ElectronAPI
-    
     api: {
-      /**
-       * Abre a caixa de diálogo nativa do sistema operacional para seleção de diretórios.
-       * @returns Uma Promise com o caminho (path) absoluto da pasta selecionada, ou null se o usuário cancelar.
-       */
       selectFolder: () => Promise<string | null>
-
-      /** Abre um diretório no explorador de ficheiros do sistema operativo. */
       openFolder: (path: string) => Promise<void>
-
-      /** Ativa ou bloqueia as notificações nativas emitidas pelo processo principal. */
       setNativeNotificationsEnabled: (enabled: boolean) => Promise<void>
-      
-      /**
-       * Envia as coordenadas (link e destino) para o motor Node.js iniciar a forja do áudio.
-       * @param payload O objeto TrackPayload contendo a url e o diretório de saída.
-       * @returns Uma Promise resolvida quando todo o pipeline de processamento é finalizado.
-       */
-      processAudio: (payload: TrackPayload) => Promise<void>
-
-      /**
-       * Permite ao React registar uma função para escutar a telemetria do back-end em tempo real.
-       */
-      onPipelineTelemetry: (callback: (state: PipelineState) => void) => void
+      processAudio: (payload: ProcessMediaPayload) => Promise<void>
+      onPipelineTelemetry: (callback: (state: PipelineState) => void) => () => void
     }
   }
 }

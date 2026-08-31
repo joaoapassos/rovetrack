@@ -1,186 +1,166 @@
 import { join } from 'node:path'
-import { 
-  electronApp, 
-  is,
-  optimizer, 
-} from '@electron-toolkit/utils'
+import { electronApp, is, optimizer } from '@electron-toolkit/utils'
+import type { PipelineState } from '@shared/contracts/pipeline'
 import { calculateGlobalProgress } from '@shared/utils/calculateGlobalProgress'
-import {
-  app, 
-  BrowserWindow, 
-  dialog,
-  ipcMain,
-  Notification,
-  shell, 
-} from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron'
 import icon from '../../resources/icon.png?asset'
+import {
+  notificationsEnabledSchema,
+  processMediaPayloadSchema,
+  validateDirectoryPath
+} from './ipcValidation'
+import { createMediaPipeline } from './pipeline'
+import { AudioMp3Processor } from './processors/audio/AudioMp3Processor'
+import { ProviderResolver } from './providers/ProviderResolver'
+import { YtDlpProvider } from './providers/yt-dlp/YtDlpProvider'
+import { isAllowedExternalUrl } from './security/externalNavigation'
+import { OutputStorage } from './services/storage/OutputStorage'
+import { cleanWorkspace, prepareWorkspace } from './utils/workspace'
 
-import { processAudioPipeline } from './pipeline'
-
+const processMedia = createMediaPipeline({
+  providerResolver: new ProviderResolver([new YtDlpProvider()]),
+  mediaProcessor: new AudioMp3Processor(),
+  outputStorage: new OutputStorage(),
+  prepareWorkspace,
+  cleanWorkspace
+})
 
 let nativeNotificationsEnabled = true
+let processing = false
 
 function updateTaskbarProgress(mainWindow: BrowserWindow, state: PipelineState): void {
   const progress = calculateGlobalProgress(state) / 100
-
   if (state.status === 'error') {
-    mainWindow.setProgressBar(1, { mode: 'error' })
-    if (!mainWindow.isFocused()) mainWindow.flashFrame(true)
-    return
+    mainWindow.setProgressBar(progress, { mode: 'error' })
+  } else if (state.status === 'partial') {
+    mainWindow.setProgressBar(1, { mode: 'paused' })
+  } else {
+    mainWindow.setProgressBar(progress, { mode: 'normal' })
   }
 
-  mainWindow.setProgressBar(progress, { mode: 'normal' })
-
-  if (state.status === 'success' && !mainWindow.isFocused()) {
+  if (['success', 'partial', 'error'].includes(state.status) && !mainWindow.isFocused()) {
     mainWindow.flashFrame(true)
   }
 }
 
+async function openAllowedExternalUrl(url: string): Promise<void> {
+  if (!isAllowedExternalUrl(url)) return
+  await shell.openExternal(url)
+}
+
 function createWindow(): void {
-  // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     show: false,
     autoHideMenuBar: true,
-    title: "Rovetrack",
+    title: 'RoveTrack',
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
-
-  mainWindow.on('focus', () => {
-    mainWindow.flashFrame(false)
-  })
-
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+  mainWindow.on('ready-to-show', () => mainWindow.show())
+  mainWindow.on('focus', () => mainWindow.flashFrame(false))
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    void openAllowedExternalUrl(url).catch((error) =>
+      console.warn('[navigation] Não foi possível abrir URL externa:', error)
+    )
     return { action: 'deny' }
   })
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    event.preventDefault()
+    void openAllowedExternalUrl(url).catch((error) =>
+      console.warn('[navigation] Não foi possível abrir URL externa:', error)
+    )
+  })
+  mainWindow.webContents.session.setPermissionRequestHandler(
+    (_webContents, _permission, callback) => {
+      callback(false)
+    }
+  )
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
-  }
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL
+  if (is.dev && rendererUrl) mainWindow.loadURL(rendererUrl)
+  else mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
-  // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
-
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
-
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
-
-  createWindow()
-
-  // --- RECPTORES IPC (ROVETRACK) ---
-  
-  /**
-   * Escuta o evento 'dialog:selectFolder' disparado pelo front-end.
-   * Interrompe o processo para abrir a janela nativa de seleção do OS.
-   */
+function registerIpcHandlers(): void {
   ipcMain.handle('dialog:selectFolder', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       properties: ['openDirectory'],
-      title: 'Selecione o Acampamento Base (Destino)'
+      title: 'Selecione o destino'
     })
-    
-    if (canceled) return null
-    return filePaths[0]
+    return canceled ? null : filePaths[0]
   })
 
-  ipcMain.handle('shell:openFolder', async (_event, path: string) => {
-    if (!path) throw new Error('O diretório de destino não foi definido.')
-
-    const errorMessage = await shell.openPath(path)
+  ipcMain.handle('shell:openFolder', async (_event, input: unknown) => {
+    const directory = await validateDirectoryPath(input)
+    const errorMessage = await shell.openPath(directory)
     if (errorMessage) throw new Error(`Não foi possível abrir o diretório: ${errorMessage}`)
   })
 
-  ipcMain.handle('notifications:setEnabled', (_event, enabled: boolean) => {
-    nativeNotificationsEnabled = enabled
+  ipcMain.handle('notifications:setEnabled', (_event, input: unknown) => {
+    nativeNotificationsEnabled = notificationsEnabledSchema.parse(input)
   })
 
-  /**
-   * Escuta o evento 'audio:process' disparado pelo front-end.
-   * Recebe o payload tipado, engata o motor de extração (Pipeline)
-   * e aguarda a finalização para retornar o sinal de sucesso ao React.
-   */
-  ipcMain.handle('audio:process', async (event, payload: TrackPayload) => {
-    const mainWindow = BrowserWindow.fromWebContents(event.sender)
+  ipcMain.handle('audio:process', async (event, input: unknown) => {
+    if (processing) throw new Error('Já existe uma operação em andamento.')
+    const payload = processMediaPayloadSchema.parse(input)
+    processing = true
 
     try {
-      // Executa a forja completa
-      const report = await processAudioPipeline(payload, (state: PipelineState) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          updateTaskbarProgress(mainWindow, state)
-        }
-        event.sender.send('audio:telemetry', state)
-      });
+      const destinationDirectory = await validateDirectoryPath(payload.request.destinationDirectory)
+      const request = { ...payload.request, destinationDirectory }
+      const mainWindow = BrowserWindow.fromWebContents(event.sender)
+      const report = await processMedia(request, payload.runId, (state) => {
+        if (mainWindow && !mainWindow.isDestroyed()) updateTaskbarProgress(mainWindow, state)
+        if (!event.sender.isDestroyed()) event.sender.send('audio:telemetry', state)
+      })
 
-      // Se passou por tudo sem quebrar, dispara a notificação tática de sucesso
       if (nativeNotificationsEnabled && Notification.isSupported()) {
         new Notification({
           title: report.failed > 0 ? 'RoveTrack: concluído com falhas' : 'RoveTrack',
           body:
             report.failed > 0
-              ? `${report.succeeded} faixa(s) concluída(s); ${report.failed} ignorada(s). Consulte o relatório.`
-              : `${report.succeeded} faixa(s) descarregada(s) com sucesso.`,
-          icon: icon,
-          silent: true,
-        }).show();
+              ? `${report.succeeded} item(ns) concluído(s); ${report.failed} falhou(aram).`
+              : `${report.succeeded} item(ns) concluído(s) com sucesso.`,
+          icon,
+          silent: true
+        }).show()
       }
-
+      return report
     } catch (error) {
-      // Se a expedição falhar por timeout ou erro crítico
       if (nativeNotificationsEnabled && Notification.isSupported()) {
         new Notification({
-          title: 'RoveTrack: Falha Crítica',
-          body: 'Ocorreu um erro no donwload. Verifique os registos no painel.',
-          icon: icon,
-          silent: true,
-        }).show();
+          title: 'RoveTrack: falha crítica',
+          body: 'O processamento não pôde ser concluído. Consulte o relatório.',
+          icon,
+          silent: true
+        }).show()
       }
-      
-      // Lança o erro de volta para a Promise do front-end
-      throw error;
+      throw error
+    } finally {
+      processing = false
     }
   })
-  // --------------------------------
+}
+
+app.whenReady().then(() => {
+  electronApp.setAppUserModelId('com.rovetrack.app')
+  app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
+  registerIpcHandlers()
+  createWindow()
 
   app.on('activate', () => {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  if (process.platform !== 'darwin') app.quit()
 })
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.
