@@ -1,3 +1,4 @@
+import type { PipelineReport } from '@shared/contracts/pipeline'
 import { useEffect, useState } from 'react'
 import {
   clearDownloadHistory,
@@ -118,10 +119,16 @@ export function HistoryModal({
                           className={`border px-2 py-0.5 font-mono text-[10px] font-bold uppercase ${
                             entry.status === 'success'
                               ? 'border-[#A2ECFB]/50 text-[#A2ECFB]'
-                              : 'border-[#f28b82]/50 text-[#f28b82]'
+                              : entry.status === 'partial'
+                                ? 'border-amber-400/50 text-amber-400'
+                                : 'border-[#f28b82]/50 text-[#f28b82]'
                           }`}
                         >
-                          {entry.status === 'success' ? 'Concluído' : 'Com falhas'}
+                          {entry.status === 'success'
+                            ? 'Concluído'
+                            : entry.status === 'partial'
+                              ? 'Parcial'
+                              : 'Falhou'}
                         </span>
                         <time className="font-mono text-[10px] text-[#6f767d]">
                           {dateFormatter.format(new Date(entry.createdAt))}

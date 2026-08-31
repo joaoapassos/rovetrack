@@ -1,3 +1,4 @@
+import type { PipelineReport, PipelineReportError } from '@shared/contracts/pipeline'
 import { useEffect } from 'react'
 
 interface ReportModalProps {

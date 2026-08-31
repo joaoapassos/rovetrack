@@ -1,3 +1,5 @@
+import type { PipelineState } from '../contracts/pipeline'
+
 /**
  * Converte a telemetria das quatro etapas numa percentagem única, de 0 a 100.
  * Este cálculo é partilhado pela interface e pelo progresso nativo da janela.
@@ -5,7 +7,7 @@
 export const calculateGlobalProgress = (state: PipelineState | null): number => {
   if (!state) return 0
 
-  if (state.status === 'success' || state.status === 'error') return 100
+  if (state.status === 'success' || state.status === 'partial') return 100
 
   const { step, batch, progress } = state
   const safeTotalBatch = Math.max(batch.total, 1)

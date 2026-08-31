@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import type { PipelineReport, PipelineState } from '@shared/contracts/pipeline'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -7,10 +8,30 @@ import notificationSound from './assets/notification.mp3'
 import { HistoryModal } from './components/HistoryModal'
 import { ReportModal } from './components/ReportModal'
 import { calculateGlobalProgress } from './utils'
-import { type DownloadHistoryEntry, saveDownloadHistory } from './utils/downloadHistory'
+import {
+  type DownloadHistoryEntry,
+  HISTORY_SCHEMA_VERSION,
+  saveDownloadHistory
+} from './utils/downloadHistory'
 
 const schema = z.object({
-  url: z.url('É necessário um link válido do YouTube.'),
+  url: z.url('É necessário um link válido do YouTube.').refine((value) => {
+    try {
+      const parsed = new URL(value)
+      return (
+        parsed.protocol === 'https:' &&
+        [
+          'youtube.com',
+          'www.youtube.com',
+          'm.youtube.com',
+          'music.youtube.com',
+          'youtu.be'
+        ].includes(parsed.hostname.toLowerCase())
+      )
+    } catch {
+      return false
+    }
+  }, 'Informe uma URL HTTPS válida do YouTube.'),
   outputDir: z.string().min(1, 'Defina o caminho de destino para a expedição.')
 })
 
@@ -82,9 +103,9 @@ function App(): React.JSX.Element {
 
   // --- Efeito de Telemetria ---
   useEffect(() => {
-    window.api.onPipelineTelemetry((state) => {
+    return window.api.onPipelineTelemetry((state) => {
+      if (activeHistoryAttemptRef.current?.id !== state.runId) return
       setTelemetry(state)
-      console.log(state)
     })
   }, [])
 
@@ -113,7 +134,11 @@ function App(): React.JSX.Element {
 
   // --- Efeito de Áudio (Notificação Tática) ---
   useEffect(() => {
-    if (telemetry?.status === 'success' || telemetry?.status === 'error') {
+    if (
+      telemetry?.status === 'success' ||
+      telemetry?.status === 'partial' ||
+      telemetry?.status === 'error'
+    ) {
       setSelectedReport(telemetry.report)
       setIsReportOpen(true)
       if (notificationVolumeRef.current === 0) return
@@ -122,27 +147,34 @@ function App(): React.JSX.Element {
       audio.volume = notificationVolumeRef.current / 100
       audio.play().catch((error) => console.log('Erro ao reproduzir áudio:', error))
     }
-  }, [telemetry?.status, telemetry?.report])
+  }, [telemetry])
   // --------------------------------------------
 
   useEffect(() => {
-    if (telemetry?.status !== 'success' && telemetry?.status !== 'error') return
+    if (
+      !telemetry ||
+      (telemetry.status !== 'success' &&
+        telemetry.status !== 'partial' &&
+        telemetry.status !== 'error')
+    )
+      return
 
     const attempt = activeHistoryAttemptRef.current
     if (!attempt || attempt.saved) return
     attempt.saved = true
 
     const report = telemetry.report
-    const isPlaylist = Boolean(report.source?.playlistTitle) || report.total > 1
+    const isPlaylist = Boolean(report.source?.collectionTitle) || report.total > 1
     const firstTrackTitle = report.tracks.find((track) => track.title)?.title
     const entry: DownloadHistoryEntry = {
+      schemaVersion: HISTORY_SCHEMA_VERSION,
       id: attempt.id,
       createdAt: new Date().toISOString(),
       url: attempt.url,
       outputDir: attempt.outputDir,
       status: telemetry.status,
       name:
-        report.source?.playlistTitle ??
+        report.source?.collectionTitle ??
         report.source?.title ??
         firstTrackTitle ??
         (isPlaylist ? `Playlist com ${report.total} faixas` : 'Faixa sem título'),
@@ -154,7 +186,7 @@ function App(): React.JSX.Element {
     saveDownloadHistory(entry)
       .then(() => setHistoryVersion((version) => version + 1))
       .catch((error) => console.error('Erro ao guardar histórico:', error))
-  }, [telemetry?.status, telemetry?.report])
+  }, [telemetry])
 
   const handleSelectFolder = async () => {
     const folder = await window.api.selectFolder()
@@ -162,16 +194,18 @@ function App(): React.JSX.Element {
   }
 
   const onSubmit = async (data: RoveFormData) => {
+    const runId = crypto.randomUUID()
     setIsReportOpen(false)
     setIsHistoryOpen(false)
     setCompletedOutputDir(data.outputDir)
     activeHistoryAttemptRef.current = {
-      id: crypto.randomUUID(),
+      id: runId,
       url: data.url,
       outputDir: data.outputDir,
       saved: false
     }
     setTelemetry({
+      runId,
       status: 'preparing',
       message: 'A iniciar os motores...',
       progress: 0,
@@ -180,7 +214,15 @@ function App(): React.JSX.Element {
       report: { total: 0, succeeded: 0, failed: 0, errors: [], tracks: [] }
     })
     try {
-      await window.api.processAudio({ url: data.url, outputDir: data.outputDir })
+      await window.api.processAudio({
+        runId,
+        request: {
+          sourceUrl: data.url,
+          destinationDirectory: data.outputDir,
+          mediaType: 'audio',
+          outputFormat: 'mp3'
+        }
+      })
     } catch {
       // Falhas são apanhadas pelo estado 'error' da telemetria
     }
@@ -190,7 +232,7 @@ function App(): React.JSX.Element {
     telemetry?.status === 'preparing' ||
     telemetry?.status === 'downloading' ||
     telemetry?.status === 'forging'
-  const isFinished = telemetry?.status === 'success' || telemetry?.status === 'error'
+  const isFinished = ['success', 'partial', 'error'].includes(telemetry?.status ?? '')
   const globalProgress = calculateGlobalProgress(telemetry)
 
   const handleOpenOutputFolder = async () => {
@@ -398,9 +440,11 @@ function App(): React.JSX.Element {
                 className={`absolute top-0 left-0 h-full transition-all duration-500 ease-out ${
                   telemetry.status === 'error'
                     ? 'bg-red-500'
-                    : telemetry.status === 'success'
-                      ? 'bg-green-500'
-                      : 'bg-[#A2ECFB]'
+                    : telemetry.status === 'partial'
+                      ? 'bg-amber-400'
+                      : telemetry.status === 'success'
+                        ? 'bg-green-500'
+                        : 'bg-[#A2ECFB]'
                 }`}
                 style={{ width: `${globalProgress}%` }}
               />
@@ -429,7 +473,7 @@ function App(): React.JSX.Element {
           {isProcessing ? 'Andamento...' : 'Iniciar'}
         </button>
 
-        {isFinished && (
+        {isFinished && telemetry && (
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"

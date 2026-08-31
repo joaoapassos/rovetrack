@@ -1,1 +1,1 @@
-export { calculateGlobalProgress } from '@shared/utils/calculateGlobalProgress';
+export { calculateGlobalProgress } from '@shared/utils/calculateGlobalProgress'
