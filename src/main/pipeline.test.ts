@@ -1,0 +1,88 @@
+import type { MediaDownloadRequest } from '@shared/contracts/media'
+import type { PipelineState } from '@shared/contracts/pipeline'
+import { describe, expect, it, vi } from 'vitest'
+import { createMediaPipeline } from './pipeline'
+import type { MediaProcessor } from './processors/contracts'
+import type { DownloadProvider } from './providers/contracts'
+import { ProviderResolver } from './providers/ProviderResolver'
+import type { OutputStorage } from './services/storage/OutputStorage'
+
+const request: MediaDownloadRequest = {
+  sourceUrl: 'https://www.youtube.com/watch?v=abc123',
+  destinationDirectory: 'C:\\output',
+  mediaType: 'audio',
+  outputFormat: 'mp3'
+}
+
+function provider(download: DownloadProvider['download']): DownloadProvider {
+  return {
+    id: 'fake',
+    capabilities: { mediaTypes: ['audio'], outputFormats: ['mp3'] },
+    supports: () => true,
+    download
+  }
+}
+
+describe('pipeline', () => {
+  it('sempre limpa o workspace após falha global', async () => {
+    const cleanup = vi.fn().mockResolvedValue(undefined)
+    const pipeline = createMediaPipeline({
+      providerResolver: new ProviderResolver([
+        provider(vi.fn().mockRejectedValue(new Error('provider failed')))
+      ]),
+      mediaProcessor: {} as MediaProcessor,
+      outputStorage: {} as OutputStorage,
+      prepareWorkspace: vi.fn().mockResolvedValue('workspace'),
+      cleanWorkspace: cleanup
+    })
+    const telemetry: PipelineState[] = []
+    await expect(pipeline(request, 'run-id', (state) => telemetry.push(state))).rejects.toThrow(
+      'provider failed'
+    )
+    expect(cleanup).toHaveBeenCalledWith('workspace')
+    expect(telemetry.at(-1)?.status).toBe('error')
+  })
+
+  it('representa sucesso parcial de forma explícita', async () => {
+    const mediaProcessor: MediaProcessor = {
+      supports: () => true,
+      process: vi.fn().mockResolvedValue({
+        sourceId: 'ok',
+        title: 'Song',
+        filePath: 'song.mp3',
+        extension: '.mp3'
+      })
+    }
+    const outputStorage = {
+      store: vi.fn().mockResolvedValue('output.mp3')
+    } as unknown as OutputStorage
+    const pipeline = createMediaPipeline({
+      providerResolver: new ProviderResolver([
+        provider(
+          vi.fn().mockResolvedValue({
+            total: 2,
+            assets: [
+              {
+                sourceId: 'ok',
+                sourceUrl: request.sourceUrl,
+                title: 'Song',
+                mediaType: 'audio',
+                outputFormat: 'mp3',
+                filePath: 'song.mp3'
+              }
+            ],
+            errors: [{ trackId: 'failed', reason: 'Unavailable' }]
+          })
+        )
+      ]),
+      mediaProcessor,
+      outputStorage,
+      prepareWorkspace: vi.fn().mockResolvedValue('workspace'),
+      cleanWorkspace: vi.fn().mockResolvedValue(undefined)
+    })
+    const telemetry: PipelineState[] = []
+    const report = await pipeline(request, 'run-id', (state) => telemetry.push(state))
+    expect(report).toMatchObject({ succeeded: 1, failed: 1 })
+    expect(telemetry.at(-1)?.status).toBe('partial')
+  })
+})

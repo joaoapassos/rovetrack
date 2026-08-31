@@ -1,7 +1,7 @@
 {
-  "name": "Rovetrack",
+  "name": "rovetrack",
   "version": "0.2.0-beta",
-  "description": "Software capable of downloading music (or any audio) using the `yt-dlp-exec` library, along with metadata such as the title and cover art, to ensure the music file has the correct title and album art.",
+  "description": "Aplicativo desktop local para obter e organizar áudio em MP3 com metadata e capa.",
   "main": "./out/main/index.js",
   "author": "João Alves Passos",
   "homepage": "https://github.com/joaoapassos/rovetrack",
@@ -11,6 +11,7 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "test": "vitest run",
     "update:yt-dlp": "npm rebuild yt-dlp-exec",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
@@ -22,21 +23,19 @@
     "build:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
-    "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@hookform/resolvers": "^5.4.0",
-    "@tailwindcss/vite": "^4.3.1",
     "ffmpeg-static": "^5.3.0",
     "node-id3": "^0.2.9",
     "react-hook-form": "^7.80.0",
     "sharp": "^0.34.5",
-    "tailwindcss": "^4.3.1",
     "yt-dlp-exec": "^1.0.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.16",
     "@electron-toolkit/tsconfig": "^2.0.0",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.19.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
@@ -46,7 +45,9 @@
     "electron-vite": "^5.0.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
-    "vite": "^7.2.6"
+    "vite": "^7.2.6",
+    "vitest": "^4.1.11"
   }
 }
