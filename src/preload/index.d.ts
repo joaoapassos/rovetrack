@@ -6,8 +6,10 @@ declare global {
     api: {
       selectFolder: () => Promise<string | null>
       openFolder: (path: string) => Promise<void>
+      directoryExists: (path: string) => Promise<boolean>
       setNativeNotificationsEnabled: (enabled: boolean) => Promise<void>
       processAudio: (payload: ProcessMediaPayload) => Promise<void>
+      interruptAudio: (runId: string) => Promise<void>
       onPipelineTelemetry: (callback: (state: PipelineState) => void) => () => void
     }
   }

@@ -1,6 +1,7 @@
 import type { DownloadedAsset } from '@main/providers/contracts'
 import type { MediaDownloadRequest } from '@shared/contracts/media'
 import type { PipelineState } from '@shared/contracts/pipeline'
+import type { RunControl } from '../control/contracts'
 
 export interface ProcessedAsset {
   sourceId: string
@@ -12,6 +13,7 @@ export interface ProcessedAsset {
 export interface ProcessingContext {
   workspaceDirectory: string
   updateTelemetry: (update: Partial<PipelineState>) => void
+  control: RunControl
 }
 
 export interface MediaProcessor {

@@ -3,8 +3,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  directoryExists,
   mediaDownloadRequestSchema,
   processMediaPayloadSchema,
+  runControlPayloadSchema,
   validateDirectoryPath
 } from './ipcValidation'
 
@@ -52,9 +54,23 @@ describe('schemas IPC', () => {
     roots.push(root)
     await mkdir(root)
     const file = join(root, 'file.txt')
+    const applicationBundle = join(root, 'malicious.app')
     await writeFile(file, 'content')
+    await mkdir(applicationBundle)
     await expect(validateDirectoryPath(root)).resolves.toBe(root)
     await expect(validateDirectoryPath(file)).rejects.toThrow('não é um diretório')
     await expect(validateDirectoryPath('relative/path')).rejects.toThrow('absoluto')
+    await expect(directoryExists(root)).resolves.toBe(true)
+    await expect(directoryExists(file)).resolves.toBe(false)
+    await expect(directoryExists('file:///tmp/malicious.exe')).resolves.toBe(false)
+    await expect(directoryExists(applicationBundle)).resolves.toBe(false)
+  })
+
+  it('valida comandos de controle por runId', () => {
+    expect(runControlPayloadSchema.safeParse({ runId: crypto.randomUUID() }).success).toBe(true)
+    expect(runControlPayloadSchema.safeParse({ runId: 'invalid' }).success).toBe(false)
+    expect(
+      runControlPayloadSchema.safeParse({ runId: crypto.randomUUID(), command: 'exec' }).success
+    ).toBe(false)
   })
 })

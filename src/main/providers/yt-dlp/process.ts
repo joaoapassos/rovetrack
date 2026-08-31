@@ -4,6 +4,7 @@ import type { PipelineReportError } from '@shared/contracts/pipeline'
 import { app } from 'electron'
 import ffmpegStatic from 'ffmpeg-static'
 import { create } from 'yt-dlp-exec'
+import { RunInterruptedError } from '../../control/RunController'
 import type { DownloadContext } from '../contracts'
 import {
   classifyYtDlpError,
@@ -14,6 +15,7 @@ import {
   parseProgress,
   parseWarning
 } from './parser'
+import { terminateProcessTree } from './processTree'
 
 export interface YtDlpRunResult {
   total: number
@@ -69,7 +71,9 @@ export const runYtDlp: YtDlpRunner = (request, context) => {
 
   return new Promise((resolve, reject) => {
     context.updateTelemetry({ message: '[RoveTrack] Iniciando provider yt-dlp...' })
-    const subprocess = customYtDlp.exec(request.sourceUrl, flags)
+    const subprocess = customYtDlp.exec(request.sourceUrl, flags, {
+      detached: process.platform !== 'win32'
+    })
     const stdoutBuffer = new LineBuffer()
     const stderrBuffer = new LineBuffer()
     const errorsByTrack = new Map<string, PipelineReportError>()
@@ -79,8 +83,9 @@ export const runYtDlp: YtDlpRunner = (request, context) => {
     let currentVideoId: string | undefined
     let total = 1
     let timedOut = false
-    let aborted = false
+    let interrupted = false
     let settled = false
+    let unsubscribeControl = () => {}
 
     const currentTrackKey = () => currentVideoId ?? `item-${currentItem}`
 
@@ -149,7 +154,7 @@ export const runYtDlp: YtDlpRunner = (request, context) => {
 
     const clearResources = () => {
       if (timeout) clearTimeout(timeout)
-      context.signal?.removeEventListener('abort', handleAbort)
+      unsubscribeControl()
       subprocess.stdout?.removeListener('data', handleStdoutChunk)
       subprocess.stderr?.removeListener('data', handleStderrChunk)
       subprocess.removeListener('close', handleClose)
@@ -175,7 +180,9 @@ export const runYtDlp: YtDlpRunner = (request, context) => {
       timeout = setTimeout(
         () => {
           timedOut = true
-          subprocess.kill('SIGKILL')
+          void terminateProcessTree(subprocess).catch((error) =>
+            console.warn('[yt-dlp] Falha ao encerrar árvore após timeout:', error)
+          )
         },
         3 * 60 * 1000
       )
@@ -191,17 +198,12 @@ export const runYtDlp: YtDlpRunner = (request, context) => {
       for (const line of stderrBuffer.push(data.toString())) handleStderrLine(line)
     }
 
-    function handleAbort(): void {
-      aborted = true
-      subprocess.kill('SIGKILL')
-    }
-
     function handleClose(code: number | null, signal: NodeJS.Signals | null): void {
       for (const line of stdoutBuffer.flush()) handleStdoutLine(line)
       for (const line of stderrBuffer.flush()) handleStderrLine(line)
 
-      if (aborted) {
-        finishReject(new Error('A execução foi cancelada.'))
+      if (interrupted) {
+        finishReject(new RunInterruptedError())
         return
       }
       if (timedOut) {
@@ -225,11 +227,22 @@ export const runYtDlp: YtDlpRunner = (request, context) => {
       finishReject(error)
     }
 
+    const handleControlState = (state: typeof context.control.state) => {
+      if (state === 'interrupted') {
+        interrupted = true
+        void terminateProcessTree(subprocess).catch((error) =>
+          console.warn('[yt-dlp] Falha ao encerrar árvore interrompida:', error)
+        )
+      }
+    }
+
+    unsubscribeControl = context.control.onStateChange(handleControlState)
+    handleControlState(context.control.state)
+
     subprocess.stdout?.on('data', handleStdoutChunk)
     subprocess.stderr?.on('data', handleStderrChunk)
     subprocess.on('close', handleClose)
     subprocess.on('error', handleProcessError)
-    context.signal?.addEventListener('abort', handleAbort, { once: true })
     resetTimeout()
   })
 }

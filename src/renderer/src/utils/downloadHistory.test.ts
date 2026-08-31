@@ -41,6 +41,15 @@ describe('histórico', () => {
     expect(parseDownloadHistoryEntry(withoutVersion)?.schemaVersion).toBe(HISTORY_SCHEMA_VERSION)
   })
 
+  it('migra a versão 1 e aceita o estado interrompido na versão atual', () => {
+    expect(parseDownloadHistoryEntry({ ...entry(), schemaVersion: 1 })?.schemaVersion).toBe(
+      HISTORY_SCHEMA_VERSION
+    )
+    expect(parseDownloadHistoryEntry({ ...entry(), status: 'interrupted' })?.status).toBe(
+      'interrupted'
+    )
+  })
+
   it('descarta somente entrada individual inválida', () => {
     expect(parseDownloadHistoryEntry({ id: 'broken' })).toBeNull()
     expect(parseDownloadHistoryJson(JSON.stringify([entry(), { id: 'broken' }]))).toHaveLength(1)

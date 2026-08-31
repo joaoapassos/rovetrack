@@ -1,61 +1,26 @@
 import {
-  type PipelineReport,
-  type PipelineReportTrack,
-  pipelineReportSchema,
-  pipelineStatusSchema
-} from '@shared/contracts/pipeline'
-import { z } from 'zod'
+  currentHistoryEntrySchema,
+  HISTORY_LIMIT,
+  HISTORY_SCHEMA_VERSION,
+  legacyHistoryEntrySchema,
+  versionOneHistoryEntrySchema
+} from '../schemas/downloadHistory'
+import type { DownloadHistoryEntry } from '../types/downloadHistory'
 
-export const HISTORY_SCHEMA_VERSION = 1
-export const HISTORY_LIMIT = 100
+export { HISTORY_LIMIT, HISTORY_SCHEMA_VERSION } from '../schemas/downloadHistory'
+export type { DownloadHistoryEntry } from '../types/downloadHistory'
+
 const HISTORY_CACHE_NAME = 'rovetrack-download-history-v1'
 const HISTORY_REQUEST_PREFIX = 'https://rovetrack.local/history/'
 const HISTORY_FALLBACK_KEY = 'rovetrack:download-history-fallback'
 
-const historyStatusSchema = pipelineStatusSchema.extract(['success', 'partial', 'error'])
-const dateStringSchema = z.string().refine((value) => !Number.isNaN(Date.parse(value)))
-const trackSchema = z.object({
-  trackId: z.string(),
-  title: z.string().optional(),
-  status: z.enum(['success', 'error'])
-})
-const baseEntrySchema = z.object({
-  id: z.string().min(1),
-  createdAt: dateStringSchema,
-  url: z.url(),
-  outputDir: z.string().min(1),
-  status: historyStatusSchema,
-  name: z.string().min(1),
-  kind: z.enum(['track', 'playlist']),
-  tracks: z.array(trackSchema),
-  report: pipelineReportSchema
-})
-const currentEntrySchema = baseEntrySchema.extend({
-  schemaVersion: z.literal(HISTORY_SCHEMA_VERSION)
-})
-const legacyEntrySchema = baseEntrySchema
-  .omit({ status: true })
-  .extend({ status: z.enum(['success', 'error']), schemaVersion: z.undefined().optional() })
-
-export interface DownloadHistoryEntry {
-  schemaVersion: typeof HISTORY_SCHEMA_VERSION
-  id: string
-  createdAt: string
-  url: string
-  outputDir: string
-  status: 'success' | 'partial' | 'error'
-  name: string
-  kind: 'track' | 'playlist'
-  tracks: PipelineReportTrack[]
-  report: PipelineReport
-}
-
 export function parseDownloadHistoryEntry(input: unknown): DownloadHistoryEntry | null {
-  const current = currentEntrySchema.safeParse(input)
+  const current = currentHistoryEntrySchema.safeParse(input)
   if (current.success) return current.data
-  const legacy = legacyEntrySchema.safeParse(input)
-  if (!legacy.success) return null
-  return { ...legacy.data, schemaVersion: HISTORY_SCHEMA_VERSION }
+  const versionOne = versionOneHistoryEntrySchema.safeParse(input)
+  if (versionOne.success) return { ...versionOne.data, schemaVersion: HISTORY_SCHEMA_VERSION }
+  const legacy = legacyHistoryEntrySchema.safeParse(input)
+  return legacy.success ? { ...legacy.data, schemaVersion: HISTORY_SCHEMA_VERSION } : null
 }
 
 export function limitDownloadHistory(

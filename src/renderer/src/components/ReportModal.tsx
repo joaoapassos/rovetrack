@@ -1,12 +1,6 @@
-import type { PipelineReport, PipelineReportError } from '@shared/contracts/pipeline'
+import type { PipelineReportError } from '@shared/contracts/pipeline'
 import { useEffect } from 'react'
-
-interface ReportModalProps {
-  open: boolean
-  report: PipelineReport
-  onClose: () => void
-  onOpenHistory: () => void
-}
+import type { ReportModalProps } from '../types/components'
 
 export function ReportModal({
   open,

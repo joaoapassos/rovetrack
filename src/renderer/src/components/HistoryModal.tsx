@@ -1,19 +1,11 @@
-import type { PipelineReport } from '@shared/contracts/pipeline'
 import { useEffect, useState } from 'react'
+import type { HistoryModalProps } from '../types/components'
+import type { DownloadHistoryEntry } from '../types/downloadHistory'
 import {
   clearDownloadHistory,
-  type DownloadHistoryEntry,
   deleteDownloadHistoryEntry,
   listDownloadHistory
 } from '../utils/downloadHistory'
-
-interface HistoryModalProps {
-  open: boolean
-  isProcessing: boolean
-  onClose: () => void
-  onRetry: (entry: DownloadHistoryEntry) => void
-  onViewReport: (report: PipelineReport) => void
-}
 
 const dateFormatter = new Intl.DateTimeFormat('pt-PT', {
   dateStyle: 'medium',
@@ -30,6 +22,8 @@ export function HistoryModal({
   const [entries, setEntries] = useState<DownloadHistoryEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState('')
+  const [folderAvailability, setFolderAvailability] = useState<Record<string, boolean>>({})
+  const [folderError, setFolderError] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -37,7 +31,15 @@ export function HistoryModal({
     setLoading(true)
     setLoadError('')
     listDownloadHistory()
-      .then(setEntries)
+      .then(async (historyEntries) => {
+        setEntries(historyEntries)
+        const availability = await Promise.all(
+          historyEntries.map(
+            async (entry) => [entry.id, await window.api.directoryExists(entry.outputDir)] as const
+          )
+        )
+        setFolderAvailability(Object.fromEntries(availability))
+      })
       .catch((error) => {
         setLoadError(error instanceof Error ? error.message : String(error))
       })
@@ -66,6 +68,16 @@ export function HistoryModal({
     if (!window.confirm('Limpar todo o histórico de downloads?')) return
     await clearDownloadHistory()
     setEntries([])
+  }
+
+  const handleOpenFolder = async (entry: DownloadHistoryEntry) => {
+    setFolderError('')
+    try {
+      await window.api.openFolder(entry.outputDir)
+    } catch {
+      setFolderAvailability((current) => ({ ...current, [entry.id]: false }))
+      setFolderError('A pasta selecionada não existe mais ou não é um diretório local válido.')
+    }
   }
 
   return (
@@ -98,6 +110,7 @@ export function HistoryModal({
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {loading && <p className="font-mono text-xs text-[#a0a4a8]">A carregar histórico...</p>}
           {loadError && <p className="font-mono text-xs text-[#f28b82]">{loadError}</p>}
+          {folderError && <p className="mb-3 font-mono text-xs text-[#f28b82]">{folderError}</p>}
           {!loading && !loadError && entries.length === 0 && (
             <div className="border border-dashed border-[#414853] bg-[#1b1b1f] p-8 text-center">
               <p className="font-mono text-xs uppercase tracking-wider text-[#a0a4a8]">
@@ -121,14 +134,18 @@ export function HistoryModal({
                               ? 'border-[#A2ECFB]/50 text-[#A2ECFB]'
                               : entry.status === 'partial'
                                 ? 'border-amber-400/50 text-amber-400'
-                                : 'border-[#f28b82]/50 text-[#f28b82]'
+                                : entry.status === 'interrupted'
+                                  ? 'border-orange-400/50 text-orange-400'
+                                  : 'border-[#f28b82]/50 text-[#f28b82]'
                           }`}
                         >
                           {entry.status === 'success'
                             ? 'Concluído'
                             : entry.status === 'partial'
                               ? 'Parcial'
-                              : 'Falhou'}
+                              : entry.status === 'interrupted'
+                                ? 'Interrompido'
+                                : 'Falhou'}
                         </span>
                         <time className="font-mono text-[10px] text-[#6f767d]">
                           {dateFormatter.format(new Date(entry.createdAt))}
@@ -179,7 +196,24 @@ export function HistoryModal({
                       )}
                     </div>
 
-                    <div className="grid shrink-0 grid-cols-3 gap-2 sm:grid-cols-1">
+                    <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-1">
+                      <button
+                        type="button"
+                        disabled={!folderAvailability[entry.id]}
+                        title={
+                          folderAvailability[entry.id]
+                            ? 'Abrir pasta de destino'
+                            : 'Pasta indisponível'
+                        }
+                        onClick={() => void handleOpenFolder(entry)}
+                        className="border border-[#414853] px-3 py-2 text-[10px] font-bold uppercase text-[#f8f8f8] hover:border-[#A2ECFB] disabled:cursor-not-allowed disabled:opacity-35"
+                      >
+                        {folderAvailability[entry.id] === undefined
+                          ? 'Verificando pasta'
+                          : folderAvailability[entry.id]
+                            ? 'Abrir pasta'
+                            : 'Pasta indisponível'}
+                      </button>
                       <button
                         type="button"
                         disabled={isProcessing}

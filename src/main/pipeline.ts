@@ -5,6 +5,8 @@ import type {
   PipelineState,
   PipelineStatus
 } from '@shared/contracts/pipeline'
+import type { RunControl } from './control/contracts'
+import { isRunInterruptedError } from './control/RunController'
 import type { MediaProcessor } from './processors/contracts'
 import type { ProviderResolver } from './providers/ProviderResolver'
 import type { OutputStorage } from './services/storage/OutputStorage'
@@ -20,6 +22,7 @@ export interface PipelineDependencies {
 export type MediaPipeline = (
   request: MediaDownloadRequest,
   runId: string,
+  control: RunControl,
   onTelemetry: (state: PipelineState) => void
 ) => Promise<PipelineReport>
 
@@ -39,7 +42,7 @@ function finalStatus(report: PipelineReport): PipelineStatus {
 }
 
 export function createMediaPipeline(dependencies: PipelineDependencies): MediaPipeline {
-  return async (request, runId, onTelemetry) => {
+  return async (request, runId, control, onTelemetry) => {
     const state: PipelineState = {
       runId,
       status: 'preparing',
@@ -51,6 +54,8 @@ export function createMediaPipeline(dependencies: PipelineDependencies): MediaPi
     }
     let workspaceDirectory: string | undefined
     let failure: unknown
+    let interrupted = false
+    let cleanupSucceeded = true
 
     const updateState = (update: Partial<PipelineState>) => {
       Object.assign(state, update)
@@ -67,11 +72,18 @@ export function createMediaPipeline(dependencies: PipelineDependencies): MediaPi
       })
     }
 
+    const unsubscribeControl = control.onStateChange((controlState) => {
+      if (controlState === 'interrupted') {
+        updateState({ message: 'A interromper a operação e limpar o workspace...' })
+      }
+    })
+
     updateState({ message: `[Expedição ${runId}] Iniciada: ${request.sourceUrl}` })
 
     try {
       updateState({ message: '[Etapa 1] A preparar workspace isolado...' })
       workspaceDirectory = await dependencies.prepareWorkspace(runId)
+      await control.checkpoint()
 
       const provider = await dependencies.providerResolver.resolve(request)
       updateState({
@@ -81,7 +93,8 @@ export function createMediaPipeline(dependencies: PipelineDependencies): MediaPi
       })
       const download = await provider.download(request, {
         workspaceDirectory,
-        updateTelemetry: updateState
+        updateTelemetry: updateState,
+        control
       })
       const report: PipelineReport = {
         runId,
@@ -112,6 +125,7 @@ export function createMediaPipeline(dependencies: PipelineDependencies): MediaPi
       })
 
       for (let index = 0; index < download.assets.length; index += 1) {
+        await control.checkpoint()
         const asset = download.assets[index]
         updateState({
           batch: { current: index + 1, total: Math.max(report.total, 1) },
@@ -125,14 +139,17 @@ export function createMediaPipeline(dependencies: PipelineDependencies): MediaPi
           }
           const processed = await dependencies.mediaProcessor.process(asset, {
             workspaceDirectory,
-            updateTelemetry: updateState
+            updateTelemetry: updateState,
+            control
           })
+          await control.checkpoint()
           updateState({ message: '  └─ A armazenar ficheiro final...' })
           await dependencies.outputStorage.store(processed, request)
           report.succeeded += 1
           report.tracks.push({ trackId: asset.sourceId, title: asset.title, status: 'success' })
           updateState({ metadata: { title: asset.title }, report })
         } catch (error) {
+          if (isRunInterruptedError(error)) throw error
           const technicalDetails = error instanceof Error ? error.message : String(error)
           const reportError: PipelineReportError = {
             trackId: asset.sourceId,
@@ -175,30 +192,46 @@ export function createMediaPipeline(dependencies: PipelineDependencies): MediaPi
         message: '[Etapa 4] A limpar o workspace...'
       })
     } catch (error) {
-      failure = error
-      const reason = error instanceof Error ? error.message : String(error)
-      const report = state.report
-      report.total = Math.max(report.total, 1)
-      report.failed = Math.max(report.failed, 1)
-      if (!report.errors.some((item) => item.trackId === 'pipeline')) {
-        report.errors.push({
-          trackId: 'pipeline',
-          reason: 'O processamento foi interrompido por uma falha global.',
-          category: 'configuration',
-          suggestion: 'Verifique os detalhes técnicos, a conexão e a pasta de destino.',
-          technicalDetails: reason,
-          retryable: true
-        })
-        report.tracks.push({ trackId: 'pipeline', status: 'error' })
+      if (isRunInterruptedError(error)) interrupted = true
+      else {
+        failure = error
+        const reason = error instanceof Error ? error.message : String(error)
+        const report = state.report
+        report.total = Math.max(report.total, 1)
+        report.failed = Math.max(report.failed, 1)
+        if (!report.errors.some((item) => item.trackId === 'pipeline')) {
+          report.errors.push({
+            trackId: 'pipeline',
+            reason: 'O processamento foi interrompido por uma falha global.',
+            category: 'configuration',
+            suggestion: 'Verifique os detalhes técnicos, a conexão e a pasta de destino.',
+            technicalDetails: reason,
+            retryable: true
+          })
+          report.tracks.push({ trackId: 'pipeline', status: 'error' })
+        }
       }
     } finally {
       if (workspaceDirectory) {
         try {
           await dependencies.cleanWorkspace(workspaceDirectory)
         } catch (cleanupError) {
+          cleanupSucceeded = false
           console.warn('[pipeline] Não foi possível limpar o workspace:', cleanupError)
         }
       }
+      unsubscribeControl()
+    }
+
+    if (interrupted) {
+      updateState({
+        status: 'interrupted',
+        report: state.report,
+        message: cleanupSucceeded
+          ? 'Operação interrompida. O workspace temporário foi limpo.'
+          : 'Operação interrompida, mas a limpeza do workspace temporário falhou.'
+      })
+      return state.report
     }
 
     if (failure) {

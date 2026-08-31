@@ -1,6 +1,7 @@
 import type { MediaDownloadRequest } from '@shared/contracts/media'
 import type { PipelineState } from '@shared/contracts/pipeline'
 import { describe, expect, it, vi } from 'vitest'
+import { RunController, RunInterruptedError } from './control/RunController'
 import { createMediaPipeline } from './pipeline'
 import type { MediaProcessor } from './processors/contracts'
 import type { DownloadProvider } from './providers/contracts'
@@ -36,9 +37,9 @@ describe('pipeline', () => {
       cleanWorkspace: cleanup
     })
     const telemetry: PipelineState[] = []
-    await expect(pipeline(request, 'run-id', (state) => telemetry.push(state))).rejects.toThrow(
-      'provider failed'
-    )
+    await expect(
+      pipeline(request, 'run-id', new RunController(), (state) => telemetry.push(state))
+    ).rejects.toThrow('provider failed')
     expect(cleanup).toHaveBeenCalledWith('workspace')
     expect(telemetry.at(-1)?.status).toBe('error')
   })
@@ -81,8 +82,54 @@ describe('pipeline', () => {
       cleanWorkspace: vi.fn().mockResolvedValue(undefined)
     })
     const telemetry: PipelineState[] = []
-    const report = await pipeline(request, 'run-id', (state) => telemetry.push(state))
+    const report = await pipeline(request, 'run-id', new RunController(), (state) =>
+      telemetry.push(state)
+    )
     expect(report).toMatchObject({ succeeded: 1, failed: 1 })
     expect(telemetry.at(-1)?.status).toBe('partial')
+  })
+
+  it('registra interrupção somente depois de limpar o workspace', async () => {
+    const events: string[] = []
+    let started: (() => void) | undefined
+    const providerStarted = new Promise<void>((resolve) => {
+      started = resolve
+    })
+    const cleanup = vi.fn().mockImplementation(async () => {
+      events.push('cleanup')
+    })
+    const controller = new RunController()
+    const pipeline = createMediaPipeline({
+      providerResolver: new ProviderResolver([
+        provider(
+          vi.fn().mockImplementation(async (_request, context) => {
+            started?.()
+            await new Promise<void>((_resolve, reject) => {
+              const unsubscribe = context.control.onStateChange((state) => {
+                if (state === 'interrupted') {
+                  unsubscribe()
+                  reject(new RunInterruptedError())
+                }
+              })
+            })
+          })
+        )
+      ]),
+      mediaProcessor: {} as MediaProcessor,
+      outputStorage: {} as OutputStorage,
+      prepareWorkspace: vi.fn().mockResolvedValue('workspace'),
+      cleanWorkspace: cleanup
+    })
+    const telemetry: PipelineState[] = []
+    const task = pipeline(request, 'run-id', controller, (state) => {
+      telemetry.push(state)
+      if (state.status === 'interrupted') events.push('interrupted')
+    })
+    await providerStarted
+    controller.interrupt()
+    await expect(task).resolves.toMatchObject({ succeeded: 0, failed: 0 })
+    expect(cleanup).toHaveBeenCalledWith('workspace')
+    expect(telemetry.at(-1)?.status).toBe('interrupted')
+    expect(events).toEqual(['cleanup', 'interrupted'])
   })
 })

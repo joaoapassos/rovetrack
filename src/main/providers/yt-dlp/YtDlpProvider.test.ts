@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { MediaDownloadRequest } from '@shared/contracts/media'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { RunController } from '../../control/RunController'
 import { YtDlpProvider } from './YtDlpProvider'
 
 const temporaryDirectories: string[] = []
@@ -45,7 +46,8 @@ describe('YtDlpProvider', () => {
     const provider = new YtDlpProvider(vi.fn().mockResolvedValue({ total: 1, errors: [] }))
     const result = await provider.download(request, {
       workspaceDirectory: workspace,
-      updateTelemetry: vi.fn()
+      updateTelemetry: vi.fn(),
+      control: new RunController()
     })
 
     expect(result.assets[0]).toMatchObject({
@@ -74,7 +76,8 @@ describe('YtDlpProvider', () => {
 
     const result = await provider.download(request, {
       workspaceDirectory: workspace,
-      updateTelemetry: vi.fn()
+      updateTelemetry: vi.fn(),
+      control: new RunController()
     })
 
     expect(result.assets).toHaveLength(1)
@@ -87,7 +90,11 @@ describe('YtDlpProvider', () => {
   it('propaga encerramento inesperado reportado pelo runner', async () => {
     const provider = new YtDlpProvider(vi.fn().mockRejectedValue(new Error('exit code 2')))
     await expect(
-      provider.download(request, { workspaceDirectory: 'unused', updateTelemetry: vi.fn() })
+      provider.download(request, {
+        workspaceDirectory: 'unused',
+        updateTelemetry: vi.fn(),
+        control: new RunController()
+      })
     ).rejects.toThrow('exit code 2')
   })
 })

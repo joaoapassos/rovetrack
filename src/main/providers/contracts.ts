@@ -1,5 +1,6 @@
 import type { MediaDownloadRequest, MediaType, OutputFormat } from '@shared/contracts/media'
 import type { PipelineReportError, PipelineState } from '@shared/contracts/pipeline'
+import type { RunControl } from '../control/contracts'
 
 export interface DownloadedAsset {
   sourceId: string
@@ -22,7 +23,7 @@ export interface DownloadResult {
 export interface DownloadContext {
   workspaceDirectory: string
   updateTelemetry: (update: Partial<PipelineState>) => void
-  signal?: AbortSignal
+  control: RunControl
 }
 
 export interface DownloadProvider {

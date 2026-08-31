@@ -1,12 +1,13 @@
 import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import type { PipelineState } from '@shared/contracts/pipeline'
-import { calculateGlobalProgress } from '@shared/utils/calculateGlobalProgress'
 import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron'
 import icon from '../../resources/icon.png?asset'
+import { RunController } from './control/RunController'
 import {
+  directoryExists,
   notificationsEnabledSchema,
   processMediaPayloadSchema,
+  runControlPayloadSchema,
   validateDirectoryPath
 } from './ipcValidation'
 import { createMediaPipeline } from './pipeline'
@@ -15,6 +16,7 @@ import { ProviderResolver } from './providers/ProviderResolver'
 import { YtDlpProvider } from './providers/yt-dlp/YtDlpProvider'
 import { isAllowedExternalUrl } from './security/externalNavigation'
 import { OutputStorage } from './services/storage/OutputStorage'
+import { updateTaskbarProgress } from './taskbarProgress'
 import { cleanWorkspace, prepareWorkspace } from './utils/workspace'
 
 const processMedia = createMediaPipeline({
@@ -26,22 +28,7 @@ const processMedia = createMediaPipeline({
 })
 
 let nativeNotificationsEnabled = true
-let processing = false
-
-function updateTaskbarProgress(mainWindow: BrowserWindow, state: PipelineState): void {
-  const progress = calculateGlobalProgress(state) / 100
-  if (state.status === 'error') {
-    mainWindow.setProgressBar(progress, { mode: 'error' })
-  } else if (state.status === 'partial') {
-    mainWindow.setProgressBar(1, { mode: 'paused' })
-  } else {
-    mainWindow.setProgressBar(progress, { mode: 'normal' })
-  }
-
-  if (['success', 'partial', 'error'].includes(state.status) && !mainWindow.isFocused()) {
-    mainWindow.flashFrame(true)
-  }
-}
+let activeRun: { runId: string; senderId: number; controller: RunController } | null = null
 
 async function openAllowedExternalUrl(url: string): Promise<void> {
   if (!isAllowedExternalUrl(url)) return
@@ -104,29 +91,38 @@ function registerIpcHandlers(): void {
     if (errorMessage) throw new Error(`Não foi possível abrir o diretório: ${errorMessage}`)
   })
 
+  ipcMain.handle('shell:directoryExists', (_event, input: unknown) => directoryExists(input))
+
   ipcMain.handle('notifications:setEnabled', (_event, input: unknown) => {
     nativeNotificationsEnabled = notificationsEnabledSchema.parse(input)
   })
 
   ipcMain.handle('audio:process', async (event, input: unknown) => {
-    if (processing) throw new Error('Já existe uma operação em andamento.')
+    if (activeRun) throw new Error('Já existe uma operação em andamento.')
     const payload = processMediaPayloadSchema.parse(input)
-    processing = true
+    const controller = new RunController()
+    const mainWindow = BrowserWindow.fromWebContents(event.sender)
+    activeRun = { runId: payload.runId, senderId: event.sender.id, controller }
 
     try {
       const destinationDirectory = await validateDirectoryPath(payload.request.destinationDirectory)
       const request = { ...payload.request, destinationDirectory }
-      const mainWindow = BrowserWindow.fromWebContents(event.sender)
-      const report = await processMedia(request, payload.runId, (state) => {
+      const report = await processMedia(request, payload.runId, controller, (state) => {
         if (mainWindow && !mainWindow.isDestroyed()) updateTaskbarProgress(mainWindow, state)
         if (!event.sender.isDestroyed()) event.sender.send('audio:telemetry', state)
       })
 
       if (nativeNotificationsEnabled && Notification.isSupported()) {
+        const wasInterrupted = controller.state === 'interrupted'
         new Notification({
-          title: report.failed > 0 ? 'RoveTrack: concluído com falhas' : 'RoveTrack',
-          body:
-            report.failed > 0
+          title: wasInterrupted
+            ? 'RoveTrack: operação interrompida'
+            : report.failed > 0
+              ? 'RoveTrack: concluído com falhas'
+              : 'RoveTrack',
+          body: wasInterrupted
+            ? 'O download foi interrompido e o workspace temporário foi limpo.'
+            : report.failed > 0
               ? `${report.succeeded} item(ns) concluído(s); ${report.failed} falhou(aram).`
               : `${report.succeeded} item(ns) concluído(s) com sucesso.`,
           icon,
@@ -145,9 +141,26 @@ function registerIpcHandlers(): void {
       }
       throw error
     } finally {
-      processing = false
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(-1)
+      if (activeRun?.runId === payload.runId) activeRun = null
     }
   })
+
+  const controlRun = (
+    senderId: number,
+    input: unknown,
+    action: (controller: RunController) => boolean
+  ): void => {
+    const { runId } = runControlPayloadSchema.parse(input)
+    if (!activeRun || activeRun.runId !== runId || activeRun.senderId !== senderId) {
+      throw new Error('A operação indicada não está ativa.')
+    }
+    if (!action(activeRun.controller)) throw new Error('A operação não aceita esta transição.')
+  }
+
+  ipcMain.handle('audio:interrupt', (event, input: unknown) =>
+    controlRun(event.sender.id, input, (controller) => controller.interrupt())
+  )
 }
 
 app.whenReady().then(() => {

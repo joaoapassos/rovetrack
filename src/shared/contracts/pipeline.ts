@@ -7,6 +7,7 @@ export const pipelineStatusSchema = z.enum([
   'forging',
   'success',
   'partial',
+  'interrupted',
   'error'
 ])
 

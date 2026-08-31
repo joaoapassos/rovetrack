@@ -21,4 +21,8 @@ describe('calculateGlobalProgress', () => {
     expect(calculateGlobalProgress({ ...base, status: 'success' })).toBe(100)
     expect(calculateGlobalProgress({ ...base, status: 'partial' })).toBe(100)
   })
+
+  it('preserva o progresso ao interromper', () => {
+    expect(calculateGlobalProgress({ ...base, status: 'interrupted' })).toBeLessThan(100)
+  })
 })

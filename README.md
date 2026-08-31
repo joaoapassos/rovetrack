@@ -26,8 +26,9 @@ O aplicativo não oferece atualmente download de vídeo ou imagem, outros format
 - saída em MP3;
 - título, artista, álbum e capa em tags ID3;
 - progresso do download e do processamento;
-- relatório de sucesso, falha parcial ou erro;
-- histórico local com opção de tentar novamente;
+- interrupção confirmada, encerramento da árvore do processo e limpeza dos temporários;
+- relatório de sucesso, falha parcial, interrupção ou erro;
+- histórico local com opção de tentar novamente e abrir a pasta de destino validada;
 - notificações sonoras e nativas;
 - prevenção de sobrescrita por nomes repetidos.
 
@@ -126,7 +127,7 @@ src/
 │   ├── pipeline.ts      # orquestração
 │   └── index.ts         # Electron, segurança e IPC
 ├── preload/             # window.api
-├── renderer/            # interface React e histórico
+├── renderer/            # interface React componentizada, schemas, types e histórico
 └── shared/              # contratos, schemas e progresso
 ```
 
@@ -136,7 +137,7 @@ src/
 npm test
 ```
 
-A suíte usa Vitest e não acessa YouTube nem executa downloads reais. Ela cobre resolver/provider, parser orientado a linhas, schemas IPC, filenames, colisões, movimento `EXDEV`, workspace, pipeline, histórico, progresso e metadata ID3.
+A suíte usa Vitest e não acessa YouTube nem executa downloads reais. Ela cobre resolver/provider, parser orientado a linhas, interrupção da árvore de processos, schemas IPC, validação de diretórios, filenames, colisões, movimento `EXDEV`, workspace, pipeline, histórico, progresso e metadata ID3.
 
 ## Privacidade
 
@@ -163,4 +164,4 @@ Leia os [Termos de Uso](TERMS_OF_USE.md) antes de instalar ou utilizar o aplicat
 
 ## Possibilidades futuras
 
-Sem compromisso de prazo, a arquitetura permite avaliar providers adicionais, outros tipos e formatos de mídia e cancelamento completo. Essas funcionalidades não fazem parte da versão atual.
+Sem compromisso de prazo, a arquitetura permite avaliar providers adicionais e outros tipos e formatos de mídia. Essas funcionalidades não fazem parte da versão atual.
