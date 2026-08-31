@@ -1,12 +1,30 @@
-import { readdir } from 'node:fs/promises'
-import { join } from 'node:path'
-import { injectId3Tags } from '@main/services/audio/'
-import { downloadRawFiles } from '@main/services/downloader'
-import { formatCoverImage } from '@main/services/image/'
-import { extractMetadataFromJson } from '@main/services/metadata/'
-import { cleanWorkspace, findCoverImage, moveOrRenameFile, prepareWorkspace } from '@main/utils'
+import type { MediaDownloadRequest } from '@shared/contracts/media'
+import type {
+  PipelineReport,
+  PipelineReportError,
+  PipelineState,
+  PipelineStatus
+} from '@shared/contracts/pipeline'
+import type { MediaProcessor } from './processors/contracts'
+import type { ProviderResolver } from './providers/ProviderResolver'
+import type { OutputStorage } from './services/storage/OutputStorage'
 
-const emptyReport = (): PipelineReport => ({
+export interface PipelineDependencies {
+  providerResolver: ProviderResolver
+  mediaProcessor: MediaProcessor
+  outputStorage: OutputStorage
+  prepareWorkspace: (runId: string) => Promise<string>
+  cleanWorkspace: (workspaceDirectory: string) => Promise<void>
+}
+
+export type MediaPipeline = (
+  request: MediaDownloadRequest,
+  runId: string,
+  onTelemetry: (state: PipelineState) => void
+) => Promise<PipelineReport>
+
+const emptyReport = (runId: string): PipelineReport => ({
+  runId,
   total: 0,
   succeeded: 0,
   failed: 0,
@@ -14,212 +32,197 @@ const emptyReport = (): PipelineReport => ({
   tracks: []
 })
 
-export async function processAudioPipeline(
-  payload: TrackPayload,
-  onTelemetry: (state: PipelineState) => void
-): Promise<PipelineReport> {
-  const { url, outputDir } = payload
+function finalStatus(report: PipelineReport): PipelineStatus {
+  if (report.succeeded > 0 && report.failed > 0) return 'partial'
+  if (report.succeeded > 0) return 'success'
+  return 'error'
+}
 
-  const state: PipelineState = {
-    status: 'preparing',
-    message: 'Iniciando expedição...',
-    progress: 0,
-    step: { current: 1, total: 4 },
-    batch: { current: 1, total: 1 },
-    report: emptyReport()
-  }
-
-  const updateState = (update: Partial<PipelineState>) => {
-    Object.assign(state, update)
-    // Copiar também as estruturas aninhadas evita enviar referências mutáveis pelo IPC.
-    onTelemetry({
-      ...state,
-      report: {
-        ...state.report,
-        errors: [...state.report.errors],
-        tracks: [...state.report.tracks],
-        ...(state.report.source && { source: { ...state.report.source } })
-      }
-    })
-  }
-
-  updateState({ message: `[Expedição] Iniciada: ${url}` })
-
-  try {
-    updateState({
+export function createMediaPipeline(dependencies: PipelineDependencies): MediaPipeline {
+  return async (request, runId, onTelemetry) => {
+    const state: PipelineState = {
+      runId,
+      status: 'preparing',
+      message: 'Iniciando expedição...',
+      progress: 0,
       step: { current: 1, total: 4 },
-      message: '[Etapa 1] A preparar o acampamento base...'
-    })
-    const workspaceDir = await prepareWorkspace()
+      batch: { current: 1, total: 1 },
+      report: emptyReport(runId)
+    }
+    let workspaceDirectory: string | undefined
+    let failure: unknown
 
-    updateState({
-      status: 'downloading',
-      step: { current: 2, total: 4 },
-      message: '[Etapa 2] A descarregar áudio e metadados...'
-    })
-    const downloadReport = await downloadRawFiles({ url, outputDir: workspaceDir }, updateState)
-
-    const report: PipelineReport = {
-      total: downloadReport.total,
-      succeeded: 0,
-      failed: downloadReport.errors.length,
-      errors: [...downloadReport.errors],
-      tracks: downloadReport.errors.map((error) => ({
-        trackId: error.trackId,
-        title: error.title,
-        status: 'error'
-      }))
+    const updateState = (update: Partial<PipelineState>) => {
+      Object.assign(state, update)
+      onTelemetry({
+        ...state,
+        step: { ...state.step },
+        batch: { ...state.batch },
+        report: {
+          ...state.report,
+          errors: [...state.report.errors],
+          tracks: [...state.report.tracks],
+          ...(state.report.source && { source: { ...state.report.source } })
+        }
+      })
     }
 
-    updateState({
-      status: 'forging',
-      step: { current: 3, total: 4 },
-      progress: 0,
-      report,
-      message: 'Download concluído. A analisar ficheiros...'
-    })
+    updateState({ message: `[Expedição ${runId}] Iniciada: ${request.sourceUrl}` })
 
-    const files = await readdir(workspaceDir)
-    const jsonFiles = files.filter((file) => {
-      if (!file.startsWith('rovetrack_temp_') || !file.endsWith('.info.json')) return false
-      const baseName = file.replace('.info.json', '')
-      return files.includes(`${baseName}.mp3`)
-    })
+    try {
+      updateState({ message: '[Etapa 1] A preparar workspace isolado...' })
+      workspaceDirectory = await dependencies.prepareWorkspace(runId)
 
-    // Se o yt-dlp não informou o tamanho da playlist, os artefactos são a melhor fonte.
-    report.total = Math.max(report.total, jsonFiles.length + report.failed)
-
-    for (let index = 0; index < jsonFiles.length; index++) {
-      const jsonFile = jsonFiles[index]
-      const baseName = jsonFile.replace('.info.json', '')
-      const trackId = baseName.replace(/^rovetrack_temp_/, '')
-      const infoPath = join(workspaceDir, jsonFile)
-      const mp3Path = join(workspaceDir, `${baseName}.mp3`)
-      let title: string | undefined
+      const provider = await dependencies.providerResolver.resolve(request)
+      updateState({
+        status: 'downloading',
+        step: { current: 2, total: 4 },
+        message: `[Etapa 2] A adquirir mídia com ${provider.id}...`
+      })
+      const download = await provider.download(request, {
+        workspaceDirectory,
+        updateTelemetry: updateState
+      })
+      const report: PipelineReport = {
+        runId,
+        total: download.total,
+        succeeded: 0,
+        failed: download.errors.length,
+        errors: [...download.errors],
+        tracks: download.errors.map((error) => ({
+          trackId: error.trackId,
+          title: error.title,
+          status: 'error'
+        }))
+      }
+      const firstAsset = download.assets[0]
+      if (firstAsset) {
+        report.source = {
+          ...(download.total === 1 && { title: firstAsset.title }),
+          ...(firstAsset.collection && { collectionTitle: firstAsset.collection })
+        }
+      }
 
       updateState({
-        batch: { current: index + 1, total: report.total },
+        status: 'forging',
+        step: { current: 3, total: 4 },
+        progress: 0,
         report,
-        message: `A forjar faixa ${index + 1} de ${jsonFiles.length}...`
+        message: 'Aquisição concluída. A processar mídia...'
       })
 
-      // Uma faixa inválida não impede que as restantes sejam processadas.
-      try {
-        const coverPath = join(workspaceDir, `${baseName}_cover.jpg`)
-        const metadata = await extractMetadataFromJson(infoPath, coverPath)
-        title = metadata.title
-        report.source = {
-          ...report.source,
-          ...(report.total === 1 && { title: metadata.title }),
-          ...(metadata.playlistTitle && { playlistTitle: metadata.playlistTitle })
+      for (let index = 0; index < download.assets.length; index += 1) {
+        const asset = download.assets[index]
+        updateState({
+          batch: { current: index + 1, total: Math.max(report.total, 1) },
+          report,
+          message: `A processar item ${index + 1} de ${download.assets.length}...`
+        })
+
+        try {
+          if (!dependencies.mediaProcessor.supports(asset, request)) {
+            throw new Error('Nenhum processador disponível suporta a mídia adquirida.')
+          }
+          const processed = await dependencies.mediaProcessor.process(asset, {
+            workspaceDirectory,
+            updateTelemetry: updateState
+          })
+          updateState({ message: '  └─ A armazenar ficheiro final...' })
+          await dependencies.outputStorage.store(processed, request)
+          report.succeeded += 1
+          report.tracks.push({ trackId: asset.sourceId, title: asset.title, status: 'success' })
+          updateState({ metadata: { title: asset.title }, report })
+        } catch (error) {
+          const technicalDetails = error instanceof Error ? error.message : String(error)
+          const reportError: PipelineReportError = {
+            trackId: asset.sourceId,
+            title: asset.title,
+            reason: 'A mídia foi adquirida, mas não foi possível preparar o arquivo final.',
+            category: 'postprocessing',
+            suggestion:
+              'Verifique a pasta de destino, as permissões e se o arquivo não está aberto noutro programa.',
+            technicalDetails,
+            retryable: true
+          }
+          report.failed += 1
+          report.errors.push(reportError)
+          report.tracks.push({ trackId: asset.sourceId, title: asset.title, status: 'error' })
+          updateState({
+            report,
+            message: `[FALHA ISOLADA ${asset.sourceId}] Não foi possível finalizar o arquivo.`
+          })
         }
+      }
 
-        const originalImage = await findCoverImage(workspaceDir, baseName, jsonFile)
-        if (!originalImage) throw new Error('Imagem de capa não encontrada.')
-
-        const imagePath = join(workspaceDir, originalImage)
-
-        updateState({ message: '  └─ A recortar a capa (1:1)...' })
-        await formatCoverImage(imagePath, coverPath)
-
-        updateState({ message: '  └─ A injetar metadados ID3...' })
-        injectId3Tags(mp3Path, metadata)
-
-        updateState({ message: '  └─ A transferir ficheiro final...' })
-        const safeTitle = metadata.title.replace(/[\\/:*?"<>|]/g, '')
-        await moveOrRenameFile(mp3Path, join(outputDir, `${safeTitle}.mp3`))
-
-        report.succeeded += 1
-        report.tracks.push({ trackId, title: metadata.title, status: 'success' })
-        updateState({ metadata: { title: safeTitle }, report })
-      } catch (error) {
-        const technicalDetails = error instanceof Error ? error.message : String(error)
-        report.failed += 1
+      const unaccounted = report.total - report.succeeded - report.failed
+      for (let index = 0; index < unaccounted; index += 1) {
+        const trackId = `item-desconhecido-${index + 1}`
         report.errors.push({
           trackId,
-          title,
-          reason: 'A faixa foi descarregada, mas não foi possível preparar o ficheiro MP3 final.',
-          category: 'postprocessing',
-          suggestion:
-            'Verifique se a pasta de destino permite escrita e se o ficheiro não está aberto noutro programa.',
-          technicalDetails,
+          reason: 'O provider ignorou este item sem devolver detalhes suficientes.',
+          category: 'unknown',
+          suggestion: 'Confirme se o conteúdo continua disponível na origem.',
           retryable: true
         })
-        report.tracks.push({ trackId, title, status: 'error' })
-        updateState({
-          report,
-          message: `[FALHA ISOLADA ${trackId}] Não foi possível finalizar o MP3; continuando...`
+        report.tracks.push({ trackId, status: 'error' })
+        report.failed += 1
+      }
+
+      state.report = report
+      updateState({
+        step: { current: 4, total: 4 },
+        report,
+        message: '[Etapa 4] A limpar o workspace...'
+      })
+    } catch (error) {
+      failure = error
+      const reason = error instanceof Error ? error.message : String(error)
+      const report = state.report
+      report.total = Math.max(report.total, 1)
+      report.failed = Math.max(report.failed, 1)
+      if (!report.errors.some((item) => item.trackId === 'pipeline')) {
+        report.errors.push({
+          trackId: 'pipeline',
+          reason: 'O processamento foi interrompido por uma falha global.',
+          category: 'configuration',
+          suggestion: 'Verifique os detalhes técnicos, a conexão e a pasta de destino.',
+          technicalDetails: reason,
+          retryable: true
         })
+        report.tracks.push({ trackId: 'pipeline', status: 'error' })
+      }
+    } finally {
+      if (workspaceDirectory) {
+        try {
+          await dependencies.cleanWorkspace(workspaceDirectory)
+        } catch (cleanupError) {
+          console.warn('[pipeline] Não foi possível limpar o workspace:', cleanupError)
+        }
       }
     }
 
-    // Reconcilia itens saltados mesmo que uma versão do yt-dlp não imprima uma linha ERROR analisável.
-    const unaccounted = report.total - report.succeeded - report.failed
-    for (let index = 0; index < unaccounted; index++) {
-      report.errors.push({
-        trackId: `item-desconhecido-${index + 1}`,
-        reason: 'O yt-dlp ignorou esta faixa sem devolver detalhes suficientes.',
-        category: 'unknown',
-        suggestion:
-          'A faixa pode estar privada, removida ou temporariamente bloqueada. Confirme o link no navegador.',
-        retryable: true
+    if (failure) {
+      const reason = failure instanceof Error ? failure.message : String(failure)
+      updateState({
+        status: 'error',
+        report: state.report,
+        message: `[FALHA CRÍTICA] ${reason}`
       })
-      report.tracks.push({
-        trackId: `item-desconhecido-${index + 1}`,
-        status: 'error'
-      })
-      report.failed += 1
+      throw failure
     }
 
+    const status = finalStatus(state.report)
     updateState({
-      step: { current: 4, total: 4 },
-      report,
-      message: '[Etapa 4] A desmobilizar o acampamento...'
+      status,
+      progress: status === 'error' ? state.progress : 100,
+      report: state.report,
+      message:
+        status === 'success'
+          ? 'Expedição concluída com sucesso.'
+          : status === 'partial'
+            ? `Expedição concluída com ${state.report.failed} falha(s) parcial(is).`
+            : 'A expedição terminou sem itens concluídos.'
     })
-    await cleanWorkspace()
-
-    const hasFailures = report.failed > 0
-    updateState({
-      status: hasFailures ? 'error' : 'success',
-      progress: 100,
-      report,
-      message: hasFailures
-        ? `Expedição concluída com ${report.failed} faixa(s) falhada(s).`
-        : 'Expedição concluída com sucesso.'
-    })
-    return report
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
-    const report = {
-      ...state.report,
-      errors: [...state.report.errors],
-      tracks: [...state.report.tracks]
-    }
-
-    if (report.errors.length === 0) {
-      report.total = Math.max(report.total, 1)
-      report.failed = Math.max(report.failed, 1)
-      report.errors.push({
-        trackId: state.metadata?.title ?? 'pipeline',
-        reason: 'O processamento foi interrompido por uma falha global.',
-        category: 'configuration',
-        suggestion:
-          'Verifique os detalhes técnicos, a conexão, a pasta de destino e a instalação do yt-dlp/FFmpeg.',
-        technicalDetails: reason,
-        retryable: true
-      })
-      report.tracks.push({
-        trackId: state.metadata?.title ?? 'pipeline',
-        title: state.metadata?.title,
-        status: 'error'
-      })
-    }
-
-    updateState({
-      status: 'error',
-      report,
-      message: `[FALHA CRÍTICA] ${reason}`
-    })
-    throw error
+    return state.report
   }
 }

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises"
+import { readFile } from 'node:fs/promises'
 
 /**
  * Lê fisicamente um ficheiro .json do disco rígido e converte-o de volta num Objeto JavaScript.
