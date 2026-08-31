@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: rovetrack
+appId: com.rovetrack.app
+productName: RoveTrack
 directories:
   buildResources: build
 files:
@@ -9,6 +9,9 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+extraResources:
+  - from: TERMS_OF_USE.md
+    to: TERMS_OF_USE.md
 asarUnpack:
   - resources/**
   - node_modules/ffmpeg-static/**
@@ -16,6 +19,8 @@ asarUnpack:
 win:
   executableName: rovetrack
 nsis:
+  oneClick: false
+  license: eula_pt_BR.txt
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
@@ -23,23 +28,20 @@ nsis:
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}
+  license:
+    pt_BR: eula_pt_BR.txt
 linux:
   target:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org
+  maintainer: João Alves Passos
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates
