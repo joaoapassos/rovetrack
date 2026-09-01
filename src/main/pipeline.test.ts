@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { RunController, RunInterruptedError } from './control/RunController'
 import { createMediaPipeline } from './pipeline'
 import type { MediaProcessor } from './processors/contracts'
+import { ProcessorResolver } from './processors/ProcessorResolver'
 import type { DownloadProvider } from './providers/contracts'
 import { ProviderResolver } from './providers/ProviderResolver'
 import type { OutputStorage } from './services/storage/OutputStorage'
@@ -12,7 +13,9 @@ const request: MediaDownloadRequest = {
   sourceUrl: 'https://www.youtube.com/watch?v=abc123',
   destinationDirectory: 'C:\\output',
   mediaType: 'audio',
-  outputFormat: 'mp3'
+  outputFormat: 'mp3',
+  quality: 'best',
+  thumbnail: { enabled: true, aspectRatio: '1:1', quality: 'best', outputFormat: 'jpg' }
 }
 
 function provider(download: DownloadProvider['download']): DownloadProvider {
@@ -31,7 +34,7 @@ describe('pipeline', () => {
       providerResolver: new ProviderResolver([
         provider(vi.fn().mockRejectedValue(new Error('provider failed')))
       ]),
-      mediaProcessor: {} as MediaProcessor,
+      processorResolver: new ProcessorResolver([{} as MediaProcessor]),
       outputStorage: {} as OutputStorage,
       prepareWorkspace: vi.fn().mockResolvedValue('workspace'),
       cleanWorkspace: cleanup
@@ -76,7 +79,7 @@ describe('pipeline', () => {
           })
         )
       ]),
-      mediaProcessor,
+      processorResolver: new ProcessorResolver([mediaProcessor]),
       outputStorage,
       prepareWorkspace: vi.fn().mockResolvedValue('workspace'),
       cleanWorkspace: vi.fn().mockResolvedValue(undefined)
@@ -115,7 +118,7 @@ describe('pipeline', () => {
           })
         )
       ]),
-      mediaProcessor: {} as MediaProcessor,
+      processorResolver: new ProcessorResolver([{} as MediaProcessor]),
       outputStorage: {} as OutputStorage,
       prepareWorkspace: vi.fn().mockResolvedValue('workspace'),
       cleanWorkspace: cleanup

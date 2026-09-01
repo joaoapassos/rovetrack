@@ -27,6 +27,28 @@ export type YtDlpRunner = (
   context: DownloadContext
 ) => Promise<YtDlpRunResult>
 
+const audioQuality = { best: 0, high: 2, medium: 5, low: 9 } as const
+const videoHeight = { best: undefined, high: 1080, medium: 720, low: 480 } as const
+
+export function buildYtDlpMediaFlags(request: MediaDownloadRequest): Record<string, unknown> {
+  if (request.mediaType === 'audio') {
+    return {
+      extractAudio: true,
+      audioFormat: 'mp3',
+      audioQuality: audioQuality[request.quality],
+      writeThumbnail: request.thumbnail.enabled
+    }
+  }
+  const height = videoHeight[request.quality]
+  const heightFilter = height ? `[height<=${height}]` : ''
+  return {
+    format: `bestvideo${heightFilter}[ext=mp4]+bestaudio[ext=m4a]/bestvideo${heightFilter}+bestaudio/best${heightFilter}[ext=mp4]/best`,
+    mergeOutputFormat: 'mp4',
+    embedMetadata: true,
+    writeThumbnail: request.thumbnail.enabled
+  }
+}
+
 function resolveBinaries(): { ffmpegPath: string; ytDlpPath: string } {
   let ffmpegPath = ffmpegStatic
   const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'
@@ -50,10 +72,7 @@ export const runYtDlp: YtDlpRunner = (request, context) => {
     fragmentRetries: number
   }
   const flags: CurrentFlags = {
-    extractAudio: true,
-    audioFormat: 'mp3',
-    audioQuality: 0,
-    writeThumbnail: true,
+    ...buildYtDlpMediaFlags(request),
     writeInfoJson: true,
     ffmpegLocation: ffmpegPath,
     output: join(context.workspaceDirectory, 'rovetrack_temp_%(id)s.%(ext)s'),

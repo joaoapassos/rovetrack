@@ -11,7 +11,9 @@ const request: MediaDownloadRequest = {
   sourceUrl: 'https://www.youtube.com/watch?v=abc123',
   destinationDirectory: 'C:\\output',
   mediaType: 'audio',
-  outputFormat: 'mp3'
+  outputFormat: 'mp3',
+  quality: 'best',
+  thumbnail: { enabled: true, aspectRatio: '1:1', quality: 'best', outputFormat: 'jpg' }
 }
 
 afterEach(async () => {
@@ -21,11 +23,11 @@ afterEach(async () => {
 })
 
 describe('YtDlpProvider', () => {
-  it('suporta apenas hosts YouTube e áudio MP3', () => {
+  it('declara suporte às combinações implementadas sem assumir a política de origem', () => {
     const provider = new YtDlpProvider(vi.fn())
     expect(provider.supports(request)).toBe(true)
-    expect(provider.supports({ ...request, sourceUrl: 'https://example.com/video' })).toBe(false)
-    expect(provider.supports({ ...request, mediaType: 'video', outputFormat: 'mp4' })).toBe(false)
+    expect(provider.supports({ ...request, sourceUrl: 'https://example.com/video' })).toBe(true)
+    expect(provider.supports({ ...request, mediaType: 'video', outputFormat: 'mp4' })).toBe(true)
   })
 
   it('normaliza artefatos produzidos sem acessar a internet', async () => {
@@ -57,6 +59,32 @@ describe('YtDlpProvider', () => {
       collection: 'Album',
       mediaType: 'audio',
       outputFormat: 'mp3'
+    })
+  })
+
+  it('normaliza vídeo MP4 sem acessar a internet', async () => {
+    const workspace = await mkdtemp(join(tmpdir(), 'rovetrack-provider-video-'))
+    temporaryDirectories.push(workspace)
+    await writeFile(join(workspace, 'rovetrack_temp_video.mp4'), 'video')
+    await writeFile(join(workspace, 'rovetrack_temp_video.jpg'), 'image')
+    await writeFile(
+      join(workspace, 'rovetrack_temp_video.info.json'),
+      JSON.stringify({ id: 'video', title: 'Vídeo', uploader: 'Criador' })
+    )
+    const provider = new YtDlpProvider(vi.fn().mockResolvedValue({ total: 1, errors: [] }))
+    const result = await provider.download(
+      {
+        ...request,
+        mediaType: 'video',
+        outputFormat: 'mp4',
+        thumbnail: { ...request.thumbnail, aspectRatio: '16:9' }
+      },
+      { workspaceDirectory: workspace, updateTelemetry: vi.fn(), control: new RunController() }
+    )
+    expect(result.assets[0]).toMatchObject({
+      mediaType: 'video',
+      outputFormat: 'mp4',
+      title: 'Vídeo'
     })
   })
 

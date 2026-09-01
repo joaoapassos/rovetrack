@@ -8,6 +8,11 @@ export interface ProcessedAsset {
   title: string
   filePath: string
   extension: string
+  relatedFiles?: Array<{
+    title: string
+    filePath: string
+    extension: string
+  }>
 }
 
 export interface ProcessingContext {
@@ -18,5 +23,9 @@ export interface ProcessingContext {
 
 export interface MediaProcessor {
   supports(asset: DownloadedAsset, request: MediaDownloadRequest): boolean
-  process(asset: DownloadedAsset, context: ProcessingContext): Promise<ProcessedAsset>
+  process(
+    asset: DownloadedAsset,
+    request: MediaDownloadRequest,
+    context: ProcessingContext
+  ): Promise<ProcessedAsset>
 }

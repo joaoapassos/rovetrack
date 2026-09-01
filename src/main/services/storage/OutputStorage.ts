@@ -11,6 +11,14 @@ export class OutputStorage {
       asset.extension
     )
     await moveFileSafely(asset.filePath, destination)
+    for (const related of asset.relatedFiles ?? []) {
+      const relatedDestination = await resolveOutputPath(
+        request.destinationDirectory,
+        related.title,
+        related.extension
+      )
+      await moveFileSafely(related.filePath, relatedDestination)
+    }
     return destination
   }
 }

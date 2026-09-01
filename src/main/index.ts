@@ -1,5 +1,8 @@
+import { readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
+import { backupSchema, MAX_BACKUP_BYTES } from '@shared/contracts/backup'
+import { UrlAccessPolicy } from '@shared/security/urlAccessPolicy'
 import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron'
 import icon from '../../resources/icon.png?asset'
 import { RunController } from './control/RunController'
@@ -12,6 +15,8 @@ import {
 } from './ipcValidation'
 import { createMediaPipeline } from './pipeline'
 import { AudioMp3Processor } from './processors/audio/AudioMp3Processor'
+import { ProcessorResolver } from './processors/ProcessorResolver'
+import { VideoMp4Processor } from './processors/video/VideoMp4Processor'
 import { ProviderResolver } from './providers/ProviderResolver'
 import { YtDlpProvider } from './providers/yt-dlp/YtDlpProvider'
 import { isAllowedExternalUrl } from './security/externalNavigation'
@@ -21,7 +26,7 @@ import { cleanWorkspace, prepareWorkspace } from './utils/workspace'
 
 const processMedia = createMediaPipeline({
   providerResolver: new ProviderResolver([new YtDlpProvider()]),
-  mediaProcessor: new AudioMp3Processor(),
+  processorResolver: new ProcessorResolver([new AudioMp3Processor(), new VideoMp4Processor()]),
   outputStorage: new OutputStorage(),
   prepareWorkspace,
   cleanWorkspace
@@ -85,6 +90,51 @@ function registerIpcHandlers(): void {
     return canceled ? null : filePaths[0]
   })
 
+  ipcMain.handle('shell:openExternal', async (_event, input: unknown) => {
+    if (typeof input !== 'string' || !isAllowedExternalUrl(input)) {
+      throw new Error('URL externa não permitida.')
+    }
+    await shell.openExternal(input)
+  })
+
+  ipcMain.handle('app:getTerms', async () => {
+    const termsPath = app.isPackaged
+      ? join(process.resourcesPath, 'TERMS_OF_USE.md')
+      : join(app.getAppPath(), 'TERMS_OF_USE.md')
+    return readFile(termsPath, 'utf8')
+  })
+
+  ipcMain.handle('data:saveBackup', async (_event, input: unknown) => {
+    const backup = backupSchema.parse(input)
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Exportar dados do RoveTrack',
+      defaultPath: `rovetrack-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      filters: [{ name: 'Backup JSON', extensions: ['json'] }]
+    })
+    if (canceled || !filePath) return false
+    await writeFile(filePath, `${JSON.stringify(backup, null, 2)}\n`, 'utf8')
+    return true
+  })
+
+  ipcMain.handle('data:openBackup', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: 'Importar dados do RoveTrack',
+      properties: ['openFile'],
+      filters: [{ name: 'Backup JSON', extensions: ['json'] }]
+    })
+    if (canceled || !filePaths[0]) return null
+    const details = await stat(filePaths[0])
+    if (details.size > MAX_BACKUP_BYTES) throw new Error('O backup excede o limite de 5 MB.')
+    const content = await readFile(filePaths[0], 'utf8')
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(content)
+    } catch {
+      throw new Error('O arquivo selecionado não contém JSON válido.')
+    }
+    return backupSchema.parse(parsed)
+  })
+
   ipcMain.handle('shell:openFolder', async (_event, input: unknown) => {
     const directory = await validateDirectoryPath(input)
     const errorMessage = await shell.openPath(directory)
@@ -97,9 +147,18 @@ function registerIpcHandlers(): void {
     nativeNotificationsEnabled = notificationsEnabledSchema.parse(input)
   })
 
-  ipcMain.handle('audio:process', async (event, input: unknown) => {
+  ipcMain.handle('media:process', async (event, input: unknown) => {
     if (activeRun) throw new Error('Já existe uma operação em andamento.')
     const payload = processMediaPayloadSchema.parse(input)
+    new UrlAccessPolicy([
+      {
+        id: 'request-policy',
+        label: 'Política da execução',
+        domains: payload.allowedDomains,
+        enabled: true,
+        builtin: false
+      }
+    ]).assertAllowed(payload.request.sourceUrl)
     const controller = new RunController()
     const mainWindow = BrowserWindow.fromWebContents(event.sender)
     activeRun = { runId: payload.runId, senderId: event.sender.id, controller }
@@ -109,7 +168,7 @@ function registerIpcHandlers(): void {
       const request = { ...payload.request, destinationDirectory }
       const report = await processMedia(request, payload.runId, controller, (state) => {
         if (mainWindow && !mainWindow.isDestroyed()) updateTaskbarProgress(mainWindow, state)
-        if (!event.sender.isDestroyed()) event.sender.send('audio:telemetry', state)
+        if (!event.sender.isDestroyed()) event.sender.send('media:telemetry', state)
       })
 
       if (nativeNotificationsEnabled && Notification.isSupported()) {
@@ -158,7 +217,7 @@ function registerIpcHandlers(): void {
     if (!action(activeRun.controller)) throw new Error('A operação não aceita esta transição.')
   }
 
-  ipcMain.handle('audio:interrupt', (event, input: unknown) =>
+  ipcMain.handle('media:interrupt', (event, input: unknown) =>
     controlRun(event.sender.id, input, (controller) => controller.interrupt())
   )
 }

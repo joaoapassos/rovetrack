@@ -7,7 +7,9 @@ const request: MediaDownloadRequest = {
   sourceUrl: 'https://www.youtube.com/watch?v=abc123',
   destinationDirectory: 'C:\\output',
   mediaType: 'audio',
-  outputFormat: 'mp3'
+  outputFormat: 'mp3',
+  quality: 'best',
+  thumbnail: { enabled: true, aspectRatio: '1:1', quality: 'best', outputFormat: 'jpg' }
 }
 
 function fakeProvider(id: string, supported: boolean): DownloadProvider {

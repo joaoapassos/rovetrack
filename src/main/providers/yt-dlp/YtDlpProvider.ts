@@ -19,35 +19,31 @@ interface YtInfoJson {
   playlist_title?: string
 }
 
-const youtubeHosts = new Set([
-  'youtube.com',
-  'www.youtube.com',
-  'm.youtube.com',
-  'music.youtube.com',
-  'youtu.be'
-])
 const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.avif']
 
 export class YtDlpProvider implements DownloadProvider {
   readonly id = 'yt-dlp'
   readonly capabilities = {
-    mediaTypes: ['audio'],
-    outputFormats: ['mp3']
+    mediaTypes: ['audio', 'video'],
+    outputFormats: ['mp3', 'mp4']
   } as const
 
   constructor(private readonly runner: YtDlpRunner = runYtDlp) {}
 
   supports(request: MediaDownloadRequest): boolean {
-    const host = new URL(request.sourceUrl).hostname.toLowerCase()
-    return youtubeHosts.has(host) && request.mediaType === 'audio' && request.outputFormat === 'mp3'
+    return (
+      (request.mediaType === 'audio' && request.outputFormat === 'mp3') ||
+      (request.mediaType === 'video' && request.outputFormat === 'mp4')
+    )
   }
 
   async download(request: MediaDownloadRequest, context: DownloadContext): Promise<DownloadResult> {
     const runResult = await this.runner(request, context)
     const files = await readdir(context.workspaceDirectory)
+    const extension = request.mediaType === 'audio' ? '.mp3' : '.mp4'
     const jsonFiles = files.filter((file) => {
       if (!file.startsWith('rovetrack_temp_') || !file.endsWith('.info.json')) return false
-      return files.includes(`${file.replace('.info.json', '')}.mp3`)
+      return files.includes(`${file.replace('.info.json', '')}${extension}`)
     })
     const assets: DownloadedAsset[] = []
     const normalizationErrors: PipelineReportError[] = []
@@ -70,9 +66,9 @@ export class YtDlpProvider implements DownloadProvider {
           title: typeof info.title === 'string' && info.title ? info.title : 'Título Desconhecido',
           creator: typeof info.uploader === 'string' ? info.uploader : undefined,
           collection: typeof info.playlist_title === 'string' ? info.playlist_title : undefined,
-          mediaType: 'audio',
-          outputFormat: 'mp3',
-          filePath: join(context.workspaceDirectory, `${baseName}.mp3`),
+          mediaType: request.mediaType,
+          outputFormat: request.outputFormat,
+          filePath: join(context.workspaceDirectory, `${baseName}${extension}`),
           thumbnailPath: thumbnail ? join(context.workspaceDirectory, thumbnail) : undefined
         })
       } catch (error) {

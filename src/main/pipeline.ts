@@ -7,13 +7,13 @@ import type {
 } from '@shared/contracts/pipeline'
 import type { RunControl } from './control/contracts'
 import { isRunInterruptedError } from './control/RunController'
-import type { MediaProcessor } from './processors/contracts'
+import type { ProcessorResolver } from './processors/ProcessorResolver'
 import type { ProviderResolver } from './providers/ProviderResolver'
 import type { OutputStorage } from './services/storage/OutputStorage'
 
 export interface PipelineDependencies {
   providerResolver: ProviderResolver
-  mediaProcessor: MediaProcessor
+  processorResolver: ProcessorResolver
   outputStorage: OutputStorage
   prepareWorkspace: (runId: string) => Promise<string>
   cleanWorkspace: (workspaceDirectory: string) => Promise<void>
@@ -134,10 +134,8 @@ export function createMediaPipeline(dependencies: PipelineDependencies): MediaPi
         })
 
         try {
-          if (!dependencies.mediaProcessor.supports(asset, request)) {
-            throw new Error('Nenhum processador disponível suporta a mídia adquirida.')
-          }
-          const processed = await dependencies.mediaProcessor.process(asset, {
+          const processor = dependencies.processorResolver.resolve(asset, request)
+          const processed = await processor.process(asset, request, {
             workspaceDirectory,
             updateTelemetry: updateState,
             control

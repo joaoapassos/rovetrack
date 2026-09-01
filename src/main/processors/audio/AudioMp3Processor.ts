@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import type { DownloadedAsset } from '@main/providers/contracts'
 import type { MediaDownloadRequest } from '@shared/contracts/media'
 import type { MediaProcessor, ProcessedAsset, ProcessingContext } from '../contracts'
-import { formatCoverImage } from './formatCover'
+import { formatThumbnail } from '../thumbnail'
 import { injectId3Tags } from './id3'
 
 export class AudioMp3Processor implements MediaProcessor {
@@ -16,12 +16,18 @@ export class AudioMp3Processor implements MediaProcessor {
     )
   }
 
-  async process(asset: DownloadedAsset, context: ProcessingContext): Promise<ProcessedAsset> {
-    if (!asset.thumbnailPath) throw new Error('Imagem de capa não encontrada.')
-
-    const coverPath = join(context.workspaceDirectory, `cover-${randomUUID()}.jpg`)
-    context.updateTelemetry({ message: '  └─ A recortar a capa (1:1)...' })
-    await formatCoverImage(asset.thumbnailPath, coverPath)
+  async process(
+    asset: DownloadedAsset,
+    request: MediaDownloadRequest,
+    context: ProcessingContext
+  ): Promise<ProcessedAsset> {
+    let coverPath: string | undefined
+    if (request.thumbnail.enabled && asset.thumbnailPath) {
+      const extension = request.thumbnail.outputFormat
+      coverPath = join(context.workspaceDirectory, `cover-${randomUUID()}.${extension}`)
+      context.updateTelemetry({ message: '  └─ A preparar a capa...' })
+      await formatThumbnail(asset.thumbnailPath, coverPath, request.thumbnail)
+    }
 
     context.updateTelemetry({ message: '  └─ A injetar metadados ID3...' })
     injectId3Tags(asset.filePath, {

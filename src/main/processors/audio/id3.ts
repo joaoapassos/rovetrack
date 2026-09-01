@@ -4,7 +4,7 @@ export interface AudioTags {
   title: string
   artist: string
   album: string
-  coverImagePath: string
+  coverImagePath?: string
 }
 
 export function createId3Tags(tags: AudioTags): NodeID3.Tags {
@@ -12,7 +12,7 @@ export function createId3Tags(tags: AudioTags): NodeID3.Tags {
     title: tags.title,
     artist: tags.artist,
     album: tags.album,
-    image: tags.coverImagePath
+    ...(tags.coverImagePath && { image: tags.coverImagePath })
   }
 }
 

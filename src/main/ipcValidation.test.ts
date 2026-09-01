@@ -19,14 +19,19 @@ const validRequest = {
   sourceUrl: 'https://www.youtube.com/watch?v=abc123',
   destinationDirectory: 'C:\\output',
   mediaType: 'audio',
-  outputFormat: 'mp3'
+  outputFormat: 'mp3',
+  quality: 'best',
+  thumbnail: { enabled: true, aspectRatio: '1:1', quality: 'best', outputFormat: 'jpg' }
 }
 
 describe('schemas IPC', () => {
   it('aceita payload válido', () => {
     expect(
-      processMediaPayloadSchema.safeParse({ runId: crypto.randomUUID(), request: validRequest })
-        .success
+      processMediaPayloadSchema.safeParse({
+        runId: crypto.randomUUID(),
+        request: validRequest,
+        allowedDomains: ['youtube.com']
+      }).success
     ).toBe(true)
   })
 
