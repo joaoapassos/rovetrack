@@ -1,7 +1,7 @@
 {
   "name": "rovetrack",
   "version": "0.2.0-beta",
-  "description": "Aplicativo desktop local para obter e organizar áudio em MP3 com metadata e capa.",
+  "description": "Aplicativo desktop local para obter e organizar áudio MP3 e vídeo MP4.",
   "main": "./out/main/index.js",
   "author": "João Alves Passos",
   "homepage": "https://github.com/joaoapassos/rovetrack",
@@ -26,8 +26,10 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@hookform/resolvers": "^5.4.0",
     "ffmpeg-static": "^5.3.0",
+    "lucide-react": "^0.468.0",
     "node-id3": "^0.2.9",
     "react-hook-form": "^7.80.0",
+    "react-router-dom": "^7.18.3",
     "sharp": "^0.34.5",
     "yt-dlp-exec": "^1.0.2",
     "zod": "^4.4.3"

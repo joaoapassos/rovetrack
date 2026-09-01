@@ -17,16 +17,25 @@ export function HistoryModal({
   isProcessing,
   onClose,
   onRetry,
-  onViewReport
+  onViewReport,
+  variant = 'modal'
 }: HistoryModalProps): React.JSX.Element | null {
   const [entries, setEntries] = useState<DownloadHistoryEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [folderAvailability, setFolderAvailability] = useState<Record<string, boolean>>({})
   const [folderError, setFolderError] = useState('')
+  const [revision, setRevision] = useState(0)
 
   useEffect(() => {
-    if (!open) return
+    const reload = () => setRevision((current) => current + 1)
+    window.addEventListener('rovetrack:history-changed', reload)
+    return () => window.removeEventListener('rovetrack:history-changed', reload)
+  }, [])
+
+  useEffect(() => {
+    void revision
+    if (!open || variant === 'page') return
 
     setLoading(true)
     setLoadError('')
@@ -44,10 +53,10 @@ export function HistoryModal({
         setLoadError(error instanceof Error ? error.message : String(error))
       })
       .finally(() => setLoading(false))
-  }, [open])
+  }, [open, revision, variant])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || variant === 'page') return
 
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -55,7 +64,7 @@ export function HistoryModal({
 
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [open, onClose])
+  }, [open, onClose, variant])
 
   if (!open) return null
 
@@ -81,19 +90,27 @@ export function HistoryModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        aria-label="Fechar histórico"
-        className="absolute inset-0 h-full w-full cursor-default bg-black/80"
-        onClick={onClose}
-        type="button"
-      />
+    <div
+      className={
+        variant === 'modal'
+          ? 'fixed inset-0 z-50 flex items-center justify-center p-4'
+          : 'flex min-h-0 w-full justify-center'
+      }
+    >
+      {variant === 'modal' && (
+        <button
+          aria-label="Fechar histórico"
+          title="Fechar histórico"
+          className="absolute inset-0 h-full w-full cursor-default bg-black/80"
+          onClick={onClose}
+          type="button"
+        />
+      )}
 
       <section
         aria-labelledby="history-modal-title"
-        aria-modal="true"
-        className="relative z-10 flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-sm border border-[#414853] bg-[#222222] shadow-2xl"
-        role="dialog"
+        className={`relative z-10 flex w-full max-w-4xl flex-col overflow-hidden rounded-sm border border-[#414853] bg-[#222222] shadow-2xl ${variant === 'modal' ? 'max-h-[88vh]' : ''}`}
+        role={variant === 'modal' ? 'dialog' : 'region'}
       >
         <header className="flex items-center justify-between border-b border-[#32363f] bg-[#1b1b1f] px-6 py-4">
           <div>
@@ -176,7 +193,10 @@ export function HistoryModal({
 
                       {entry.kind === 'playlist' && tracks.length > 0 && (
                         <details className="mt-3 border-t border-[#32363f] pt-3">
-                          <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-wider text-[#a0a4a8]">
+                          <summary
+                            title="Mostrar ou ocultar itens desta operação"
+                            className="cursor-pointer text-[10px] font-bold uppercase tracking-wider text-[#a0a4a8]"
+                          >
                             Ver {tracks.length} faixas
                           </summary>
                           <ul className="mt-2 max-h-28 space-y-1 overflow-y-auto font-mono text-[10px]">
@@ -216,6 +236,7 @@ export function HistoryModal({
                       </button>
                       <button
                         type="button"
+                        title="Tentar este download novamente"
                         disabled={isProcessing}
                         onClick={() => onRetry(entry)}
                         className="border border-[#A2ECFB] px-3 py-2 text-[10px] font-bold uppercase text-[#A2ECFB] hover:bg-[#A2ECFB] hover:text-[#1b1b1f] disabled:cursor-not-allowed disabled:opacity-40"
@@ -224,6 +245,7 @@ export function HistoryModal({
                       </button>
                       <button
                         type="button"
+                        title="Ver relatório desta operação"
                         onClick={() => onViewReport(entry.report)}
                         className="border border-[#414853] px-3 py-2 text-[10px] font-bold uppercase text-[#f8f8f8] hover:border-[#A2ECFB]"
                       >
@@ -231,6 +253,7 @@ export function HistoryModal({
                       </button>
                       <button
                         type="button"
+                        title="Excluir esta operação do histórico"
                         onClick={() => void handleDelete(entry.id)}
                         className="border border-[#414853] px-3 py-2 text-[10px] font-bold uppercase text-[#f28b82] hover:border-[#f28b82]"
                       >
@@ -247,19 +270,23 @@ export function HistoryModal({
         <footer className="flex items-center justify-between border-t border-[#32363f] bg-[#1b1b1f] px-6 py-4">
           <button
             type="button"
+            title="Limpar todo o histórico"
             disabled={entries.length === 0}
             onClick={() => void handleClear()}
             className="border border-[#414853] px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#f28b82] hover:border-[#f28b82] disabled:cursor-not-allowed disabled:opacity-30"
           >
             Limpar histórico
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="border border-[#A2ECFB] bg-[#A2ECFB] px-5 py-2 text-xs font-black uppercase tracking-wider text-[#1b1b1f] hover:bg-[#8bd6e5]"
-          >
-            Fechar
-          </button>
+          {variant === 'modal' && (
+            <button
+              type="button"
+              title="Fechar histórico"
+              onClick={onClose}
+              className="border border-[#A2ECFB] bg-[#A2ECFB] px-5 py-2 text-xs font-black uppercase tracking-wider text-[#1b1b1f] hover:bg-[#8bd6e5]"
+            >
+              Fechar
+            </button>
+          )}
         </footer>
       </section>
     </div>

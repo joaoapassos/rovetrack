@@ -1,7 +1,8 @@
+import { mediaDownloadRequestSchema } from '@shared/contracts/media'
 import { pipelineReportSchema } from '@shared/contracts/pipeline'
 import { z } from 'zod'
 
-export const HISTORY_SCHEMA_VERSION = 2 as const
+export const HISTORY_SCHEMA_VERSION = 3 as const
 export const HISTORY_LIMIT = 100
 
 const dateStringSchema = z.string().refine((value) => !Number.isNaN(Date.parse(value)))
@@ -24,7 +25,12 @@ const baseEntrySchema = z.object({
 })
 
 export const currentHistoryEntrySchema = baseEntrySchema.extend({
-  schemaVersion: z.literal(HISTORY_SCHEMA_VERSION)
+  schemaVersion: z.literal(HISTORY_SCHEMA_VERSION),
+  request: mediaDownloadRequestSchema
+})
+
+export const versionTwoHistoryEntrySchema = baseEntrySchema.extend({
+  schemaVersion: z.literal(2)
 })
 
 export const versionOneHistoryEntrySchema = baseEntrySchema.extend({

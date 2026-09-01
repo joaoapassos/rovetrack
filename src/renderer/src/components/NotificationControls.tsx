@@ -32,6 +32,7 @@ export function NotificationControls({
         <div className="flex min-w-[9.5rem] translate-x-2 items-center gap-2 pr-3 opacity-0 transition-[opacity,transform] duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100">
           <input
             type="range"
+            title={`Ajustar volume das notificações: ${volume}%`}
             min="0"
             max="100"
             step="5"
@@ -45,6 +46,7 @@ export function NotificationControls({
       </div>
       <button
         type="button"
+        title={nativeEnabled ? 'Desativar notificações nativas' : 'Ativar notificações nativas'}
         aria-label={nativeEnabled ? 'Bloquear notificações nativas' : 'Ativar notificações nativas'}
         aria-pressed={!nativeEnabled}
         onClick={onToggleNative}

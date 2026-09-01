@@ -12,13 +12,18 @@ export function ActionButton({
   compact = false,
   className = '',
   type = 'button',
+  children,
+  title,
   ...props
 }: ActionButtonProps): React.JSX.Element {
   return (
     <button
       type={type}
-      className={`border font-bold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${compact ? 'px-3 py-2 text-[10px]' : 'w-full py-3 text-xs tracking-[0.16em]'} ${tones[tone]} ${className}`}
+      title={title ?? (typeof children === 'string' ? children : undefined)}
+      className={`border cursor-pointer font-bold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${compact ? 'px-3 py-2 text-[10px]' : 'w-full py-3 text-xs tracking-[0.16em]'} ${tones[tone]} ${className}`}
       {...props}
-    />
+    >
+      {children}
+    </button>
   )
 }

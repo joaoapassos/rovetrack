@@ -1,20 +1,26 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import type { MediaDownloadRequest } from '@shared/contracts/media'
 import type { PipelineReport, PipelineState } from '@shared/contracts/pipeline'
+import { UrlAccessPolicy } from '@shared/security/urlAccessPolicy'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import notificationSound from './assets/notification.mp3'
 import { AppHeader } from './components/AppHeader'
 import { DownloadForm } from './components/DownloadForm'
-import { HistoryModal } from './components/HistoryModal'
-import { HistoryIcon } from './components/icons'
 import { NotificationControls } from './components/NotificationControls'
 import { ReportModal } from './components/ReportModal'
 import { type DownloadFormData, downloadFormSchema } from './schemas/downloadForm'
-import { HISTORY_SCHEMA_VERSION } from './schemas/downloadHistory'
-import type { ActiveHistoryAttempt } from './types/app'
-import type { DownloadHistoryEntry, DownloadHistoryStatus } from './types/downloadHistory'
+import { useAppSettings } from './settings/AppSettingsContext'
+import {
+  beginDownloadActivity,
+  getActiveRequest,
+  getActiveRunId,
+  getDownloadTelemetry,
+  publishDownloadTelemetry,
+  subscribeDownloadActivity
+} from './state/downloadActivity'
 import { calculateGlobalProgress } from './utils'
-import { saveDownloadHistory } from './utils/downloadHistory'
 import {
   readBooleanPreference,
   readLastAudibleVolume,
@@ -22,16 +28,25 @@ import {
 } from './utils/preferences'
 
 const activeStatuses = new Set(['preparing', 'downloading', 'forging'])
-const isTerminalStatus = (status: PipelineState['status']): status is DownloadHistoryStatus =>
+const isTerminalStatus = (status: PipelineState['status']): boolean =>
   status === 'success' || status === 'partial' || status === 'interrupted' || status === 'error'
 
-function App(): React.JSX.Element {
-  const [telemetry, setTelemetry] = useState<PipelineState | null>(null)
+export function DownloadPage(): React.JSX.Element {
+  const { settings } = useAppSettings()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const retryRequest = (location.state as { retryRequest?: MediaDownloadRequest } | null)
+    ?.retryRequest
+  const sessionRequest = retryRequest ?? getActiveRequest()
+  const musicPreset =
+    settings.downloadPresets.find((preset) => preset.id === 'music') ?? settings.downloadPresets[0]
+  const retryStartedRef = useRef(false)
+  const [telemetry, setTelemetry] = useState<PipelineState | null>(getDownloadTelemetry)
   const [isReportOpen, setIsReportOpen] = useState(false)
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
-  const [historyVersion, setHistoryVersion] = useState(0)
   const [selectedReport, setSelectedReport] = useState<PipelineReport | null>(null)
-  const [completedOutputDir, setCompletedOutputDir] = useState('')
+  const [completedOutputDir, setCompletedOutputDir] = useState(
+    sessionRequest?.destinationDirectory ?? ''
+  )
   const [controlPending, setControlPending] = useState(false)
   const [actionError, setActionError] = useState('')
   const [notificationVolume, setNotificationVolume] = useState(readVolumePreference)
@@ -40,26 +55,36 @@ function App(): React.JSX.Element {
   )
   const notificationVolumeRef = useRef(notificationVolume)
   const lastAudibleVolumeRef = useRef(readLastAudibleVolume(notificationVolume))
-  const activeHistoryAttemptRef = useRef<ActiveHistoryAttempt | null>(null)
 
   const {
     register,
     handleSubmit,
     setValue,
+    setError,
+    watch,
     formState: { errors }
   } = useForm<DownloadFormData>({
     resolver: zodResolver(downloadFormSchema),
-    defaultValues: { url: '', outputDir: '' }
+    defaultValues: {
+      url: '',
+      outputDir: '',
+      presetId: sessionRequest?.mediaType === 'video' ? 'video' : 'music',
+      mediaType: sessionRequest?.mediaType === 'video' ? 'video' : 'audio',
+      quality: sessionRequest?.quality ?? musicPreset.quality,
+      thumbnailEnabled: sessionRequest?.thumbnail.enabled ?? musicPreset.thumbnail.enabled,
+      thumbnailAspectRatio:
+        sessionRequest?.thumbnail.aspectRatio ?? musicPreset.thumbnail.aspectRatio,
+      thumbnailQuality: sessionRequest?.thumbnail.quality ?? musicPreset.thumbnail.quality,
+      thumbnailOutputFormat:
+        sessionRequest?.thumbnail.outputFormat ?? musicPreset.thumbnail.outputFormat,
+      ...(sessionRequest && {
+        url: sessionRequest.sourceUrl,
+        outputDir: sessionRequest.destinationDirectory
+      })
+    }
   })
 
-  useEffect(
-    () =>
-      window.api.onPipelineTelemetry((state) => {
-        if (activeHistoryAttemptRef.current?.id !== state.runId) return
-        setTelemetry(state)
-      }),
-    []
-  )
+  useEffect(() => subscribeDownloadActivity(setTelemetry), [])
 
   useEffect(() => {
     notificationVolumeRef.current = notificationVolume
@@ -85,77 +110,49 @@ function App(): React.JSX.Element {
     audio.play().catch(console.error)
   }, [telemetry])
 
-  useEffect(() => {
-    if (!telemetry || !isTerminalStatus(telemetry.status)) return
-    const attempt = activeHistoryAttemptRef.current
-    if (!attempt || attempt.saved) return
-    attempt.saved = true
-    const report = telemetry.report
-    const isPlaylist = Boolean(report.source?.collectionTitle) || report.total > 1
-    const firstTrackTitle = report.tracks.find((track) => track.title)?.title
-    const entry: DownloadHistoryEntry = {
-      schemaVersion: HISTORY_SCHEMA_VERSION,
-      id: attempt.id,
-      createdAt: new Date().toISOString(),
-      url: attempt.url,
-      outputDir: attempt.outputDir,
-      status: telemetry.status,
-      name:
-        report.source?.collectionTitle ??
-        report.source?.title ??
-        firstTrackTitle ??
-        (telemetry.status === 'interrupted'
-          ? 'Download interrompido'
-          : isPlaylist
-            ? `Playlist com ${report.total} faixas`
-            : 'Faixa sem título'),
-      kind: isPlaylist ? 'playlist' : 'track',
-      tracks: [...report.tracks],
-      report
-    }
-    saveDownloadHistory(entry)
-      .then(() => setHistoryVersion((version) => version + 1))
-      .catch(console.error)
-  }, [telemetry])
-
   const onSubmit = async (data: DownloadFormData) => {
+    const request: MediaDownloadRequest = {
+      sourceUrl: data.url,
+      destinationDirectory: data.outputDir,
+      mediaType: data.mediaType,
+      outputFormat: data.mediaType === 'audio' ? 'mp3' : 'mp4',
+      quality: data.quality,
+      thumbnail: {
+        enabled: data.thumbnailEnabled,
+        aspectRatio: data.thumbnailAspectRatio,
+        quality: data.thumbnailQuality,
+        outputFormat: data.thumbnailOutputFormat
+      }
+    }
+    const policy = new UrlAccessPolicy(settings.allowedSites)
+    if (!policy.allows(data.url)) {
+      const message = 'Este site não está autorizado nas configurações do RoveTrack.'
+      setError('url', {
+        message
+      })
+      setActionError(message)
+      return
+    }
     const runId = crypto.randomUUID()
     setActionError('')
     setIsReportOpen(false)
-    setIsHistoryOpen(false)
     setCompletedOutputDir(data.outputDir)
-    activeHistoryAttemptRef.current = {
-      id: runId,
-      url: data.url,
-      outputDir: data.outputDir,
-      saved: false
-    }
-    setTelemetry({
-      runId,
-      status: 'preparing',
-      message: 'A iniciar os motores...',
-      progress: 0,
-      step: { current: 1, total: 4 },
-      batch: { current: 1, total: 1 },
-      report: { total: 0, succeeded: 0, failed: 0, errors: [], tracks: [] }
-    })
+    beginDownloadActivity(runId, request)
     try {
-      await window.api.processAudio({
+      await window.api.processMedia({
         runId,
-        request: {
-          sourceUrl: data.url,
-          destinationDirectory: data.outputDir,
-          mediaType: 'audio',
-          outputFormat: 'mp3'
-        }
+        request,
+        allowedDomains: settings.allowedSites
+          .filter((site) => site.enabled)
+          .flatMap((site) => site.domains)
       })
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Não foi possível iniciar o download.'
       setActionError(message)
-      setTelemetry((current) => {
-        if (!current || current.runId !== runId || isTerminalStatus(current.status)) return current
-        return {
+      const current = getDownloadTelemetry()
+      if (current && current.runId === runId && !isTerminalStatus(current.status)) {
+        publishDownloadTelemetry({
           ...current,
           status: 'error',
           message,
@@ -170,13 +167,31 @@ function App(): React.JSX.Element {
               ? current.report.tracks
               : [{ trackId: 'pipeline', status: 'error' }]
           }
-        }
-      })
+        })
+      }
     }
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the retry state is consumed exactly once.
+  useEffect(() => {
+    if (!retryRequest || retryStartedRef.current) return
+    retryStartedRef.current = true
+    navigate('/', { replace: true, state: null })
+    void onSubmit({
+      url: retryRequest.sourceUrl,
+      outputDir: retryRequest.destinationDirectory,
+      presetId: retryRequest.mediaType === 'video' ? 'video' : 'music',
+      mediaType: retryRequest.mediaType === 'video' ? 'video' : 'audio',
+      quality: retryRequest.quality,
+      thumbnailEnabled: retryRequest.thumbnail.enabled,
+      thumbnailAspectRatio: retryRequest.thumbnail.aspectRatio,
+      thumbnailQuality: retryRequest.thumbnail.quality,
+      thumbnailOutputFormat: retryRequest.thumbnail.outputFormat
+    })
+  }, [retryRequest, navigate])
+
   const controlRun = async (action: (runId: string) => Promise<void>) => {
-    const runId = activeHistoryAttemptRef.current?.id
+    const runId = getActiveRunId()
     if (!runId) return
     setControlPending(true)
     setActionError('')
@@ -205,12 +220,6 @@ function App(): React.JSX.Element {
     }
   }
 
-  const handleRetryDownload = (entry: DownloadHistoryEntry) => {
-    setValue('url', entry.url, { shouldValidate: true })
-    setValue('outputDir', entry.outputDir, { shouldValidate: true })
-    void onSubmit({ url: entry.url, outputDir: entry.outputDir })
-  }
-
   const handleInterrupt = () => {
     if (
       !window.confirm(
@@ -219,21 +228,13 @@ function App(): React.JSX.Element {
     ) {
       return
     }
-    void controlRun(window.api.interruptAudio)
+    void controlRun(window.api.interruptMedia)
   }
 
   const isActive = activeStatuses.has(telemetry?.status ?? '')
 
   return (
     <main className="flex min-h-screen select-none flex-col items-center justify-center gap-10 bg-[#1b1b1f] p-6 font-sans text-[#f8f8f8]">
-      <button
-        type="button"
-        aria-label="Abrir histórico de downloads"
-        onClick={() => setIsHistoryOpen(true)}
-        className="fixed left-5 top-5 z-40 flex h-10 w-10 items-center justify-center border border-[#32363f] bg-[#222222] text-[#a0a4a8] transition-colors hover:border-[#A2ECFB] hover:text-[#A2ECFB]"
-      >
-        <HistoryIcon />
-      </button>
       <NotificationControls
         volume={notificationVolume}
         lastAudibleVolume={lastAudibleVolumeRef.current}
@@ -246,12 +247,21 @@ function App(): React.JSX.Element {
       />
       <AppHeader />
       {actionError && (
-        <p
+        <div
           role="alert"
           className="w-full max-w-xl border border-red-400/50 bg-red-400/10 p-3 font-mono text-xs text-red-300"
         >
-          {actionError}
-        </p>
+          <p>{actionError}</p>
+          {actionError.includes('autorizado') && (
+            <Link
+              title="Abrir configurações de sites permitidos"
+              to="/options/config"
+              className="mt-2 inline-block font-bold text-[#A2ECFB]"
+            >
+              Abrir configurações de sites
+            </Link>
+          )}
+        </div>
       )}
       <DownloadForm
         register={register}
@@ -260,6 +270,8 @@ function App(): React.JSX.Element {
         progress={calculateGlobalProgress(telemetry)}
         isActive={isActive}
         controlPending={controlPending}
+        mediaType={watch('mediaType')}
+        thumbnailEnabled={watch('thumbnailEnabled')}
         onSubmit={handleSubmit(onSubmit)}
         onSelectFolder={() => void handleSelectFolder()}
         onInterrupt={handleInterrupt}
@@ -268,11 +280,22 @@ function App(): React.JSX.Element {
           setIsReportOpen(true)
         }}
         onOpenFolder={() => void handleOpenOutputFolder()}
+        onPresetChange={(presetId) => {
+          const preset = settings.downloadPresets.find((item) => item.id === presetId)
+          if (!preset) return
+          setValue('mediaType', preset.mediaType)
+          setValue('quality', preset.quality)
+          setValue('thumbnailEnabled', preset.thumbnail.enabled)
+          setValue('thumbnailAspectRatio', preset.thumbnail.aspectRatio)
+          setValue('thumbnailQuality', preset.thumbnail.quality)
+          setValue('thumbnailOutputFormat', preset.thumbnail.outputFormat)
+        }}
       />
       <footer className="text-sm text-gray-400">
         Copyright &copy; 2026{' '}
         <a
           href="https://github.com/joaoapassos"
+          title="Abrir perfil de João Alves Passos no GitHub"
           target="_blank"
           rel="noreferrer"
           className="text-blue-400"
@@ -287,24 +310,12 @@ function App(): React.JSX.Element {
           onClose={() => setIsReportOpen(false)}
           onOpenHistory={() => {
             setIsReportOpen(false)
-            setIsHistoryOpen(true)
+            window.dispatchEvent(new CustomEvent('rovetrack:open-history'))
           }}
         />
       )}
-      <HistoryModal
-        key={historyVersion}
-        open={isHistoryOpen}
-        isProcessing={isActive}
-        onClose={() => setIsHistoryOpen(false)}
-        onRetry={handleRetryDownload}
-        onViewReport={(report) => {
-          setIsHistoryOpen(false)
-          setSelectedReport(report)
-          setIsReportOpen(true)
-        }}
-      />
     </main>
   )
 }
 
-export default App
+export default DownloadPage

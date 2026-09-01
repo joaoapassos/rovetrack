@@ -37,11 +37,14 @@ export interface DownloadFormProps {
   progress: number
   isActive: boolean
   controlPending: boolean
+  mediaType: 'audio' | 'video'
+  thumbnailEnabled: boolean
   onSubmit: FormEventHandler<HTMLFormElement>
   onSelectFolder: () => void
   onInterrupt: () => void
   onViewReport: () => void
   onOpenFolder: () => void
+  onPresetChange: (presetId: 'music' | 'video') => void
 }
 
 export interface HistoryModalProps {
@@ -50,6 +53,7 @@ export interface HistoryModalProps {
   onClose: () => void
   onRetry: (entry: DownloadHistoryEntry) => void
   onViewReport: (report: PipelineReport) => void
+  variant?: 'modal' | 'page'
 }
 
 export interface ReportModalProps {

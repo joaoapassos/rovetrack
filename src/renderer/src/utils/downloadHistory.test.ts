@@ -26,6 +26,14 @@ function entry(id = 'entry', createdAt = '2026-01-01T00:00:00.000Z'): DownloadHi
       failed: 0,
       errors: [],
       tracks: [{ trackId: 'abc123', title: 'Song', status: 'success' }]
+    },
+    request: {
+      sourceUrl: 'https://www.youtube.com/watch?v=abc123',
+      destinationDirectory: 'C:\\output',
+      mediaType: 'audio',
+      outputFormat: 'mp3',
+      quality: 'best',
+      thumbnail: { enabled: true, aspectRatio: '1:1', quality: 'best', outputFormat: 'jpg' }
     }
   }
 }

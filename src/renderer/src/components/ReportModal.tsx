@@ -25,6 +25,7 @@ export function ReportModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
         aria-label="Fechar relatório"
+        title="Fechar relatório"
         className="absolute inset-0 h-full w-full cursor-default bg-black/80"
         onClick={onClose}
         type="button"
@@ -96,7 +97,10 @@ export function ReportModal({
                     )}
                     {error.technicalDetails && (
                       <details className="mt-3 text-[#6f767d]">
-                        <summary className="cursor-pointer text-[10px] uppercase tracking-wider hover:text-[#a0a4a8]">
+                        <summary
+                          title="Mostrar ou ocultar detalhes técnicos"
+                          className="cursor-pointer text-[10px] uppercase tracking-wider hover:text-[#a0a4a8]"
+                        >
                           Ver detalhes técnicos
                         </summary>
                         <pre className="mt-2 whitespace-pre-wrap break-all border border-[#32363f] bg-[#0d0d0f] p-3 text-[10px] leading-4">
@@ -113,6 +117,7 @@ export function ReportModal({
 
         <footer className="flex items-center justify-between gap-3 border-t border-[#32363f] bg-[#1b1b1f] px-6 py-4">
           <button
+            title="Abrir histórico completo"
             className="border border-[#414853] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0a4a8] transition-colors hover:border-[#A2ECFB] hover:text-[#A2ECFB]"
             onClick={onOpenHistory}
             type="button"
@@ -120,6 +125,7 @@ export function ReportModal({
             Ver todo o histórico
           </button>
           <button
+            title="Fechar relatório"
             className="border border-[#A2ECFB] bg-[#A2ECFB] px-6 py-3 text-xs font-black uppercase tracking-[0.16em] text-[#1b1b1f] transition-colors hover:bg-[#8bd6e5] focus:outline-none focus:ring-2 focus:ring-[#A2ECFB]/40"
             onClick={onClose}
             type="button"
