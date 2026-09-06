@@ -26,6 +26,7 @@ win:
   executableName: rovetrack
 nsis:
   oneClick: false
+  unicode: true
   license: eula_pt_BR.txt
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
