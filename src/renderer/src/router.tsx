@@ -156,8 +156,8 @@ function RootLayout(): React.JSX.Element {
       </nav>
 
       <Outlet />
-{/* !isHome && isActive */}
-      { true && (
+      
+      { !isHome && isActive && (
         <button
           type="button"
           title={`Voltar ao download em andamento — ${Math.round(progress)}% concluído`}
