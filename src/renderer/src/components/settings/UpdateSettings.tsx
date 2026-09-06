@@ -8,7 +8,7 @@ import { Select } from '../Select'
 const modes: Array<{ id: UpdateMode; title: string; description: string }> = [
   {
     id: 'managed',
-    title: 'Gerenciado pelo RoveTrack (recomendado)',
+    title: 'Gerenciado pelo Rovetrack (recomendado)',
     description: 'Usa exclusivamente os componentes incluídos e testados com esta release.'
   },
   {
@@ -95,12 +95,12 @@ export function UpdateSettings(): React.JSX.Element {
         <div>
           <h3 className="text-lg font-bold">Atualizações</h3>
           <p className="mt-1 text-sm text-[#a0a4a8]">
-            Atualizações do RoveTrack e do componente yt-dlp são controladas separadamente.
+            Atualizações do Rovetrack e do componente yt-dlp são controladas separadamente.
           </p>
         </div>
         <ActionButton
           compact
-          title="Verificar agora atualizações do RoveTrack e do yt-dlp"
+          title="Verificar agora atualizações do Rovetrack e do yt-dlp"
           disabled={pending !== ''}
           onClick={() => void perform('check', window.api.checkForUpdates)}
         >
@@ -115,7 +115,7 @@ export function UpdateSettings(): React.JSX.Element {
       </div>
 
       <div className="mt-6 border border-[#32363f] bg-[#1b1b1f] p-4">
-        <h4 className="font-bold">RoveTrack</h4>
+        <h4 className="font-bold">Rovetrack</h4>
         <dl className="mt-3 grid gap-2 font-mono text-xs sm:grid-cols-2">
           <div>
             <dt className="text-[#6f767d]">Versão instalada</dt>
@@ -150,7 +150,7 @@ export function UpdateSettings(): React.JSX.Element {
               tone="primary"
               disabled={pending !== ''}
               onClick={() => void perform('app-download', window.api.downloadApplicationUpdate)}
-              title="Baixar a atualização disponível do RoveTrack"
+              title="Baixar a atualização disponível do Rovetrack"
             >
               <span className="flex items-center gap-2">
                 <Download className="h-4 w-4" aria-hidden="true" />
@@ -167,7 +167,7 @@ export function UpdateSettings(): React.JSX.Element {
               title={
                 operationActive
                   ? 'Aguarde o download atual terminar'
-                  : 'Reiniciar e instalar a atualização do RoveTrack'
+                  : 'Reiniciar e instalar a atualização do Rovetrack'
               }
             >
               Reiniciar e instalar
@@ -271,7 +271,7 @@ export function UpdateSettings(): React.JSX.Element {
           </div>
           <div>
             <dt className="text-[#6f767d]">Origem</dt>
-            <dd>{ytDlp?.source === 'managed' ? 'Independente' : 'Incluída no RoveTrack'}</dd>
+            <dd>{ytDlp?.source === 'managed' ? 'Independente' : 'Incluída no Rovetrack'}</dd>
           </div>
           <div>
             <dt className="text-[#6f767d]">Status</dt>
@@ -292,7 +292,7 @@ export function UpdateSettings(): React.JSX.Element {
         </dl>
         {updates.mode === 'managed' && (
           <p className="mt-3 text-xs text-[#a0a4a8]">
-            O yt-dlp será atualizado junto de uma futura release do RoveTrack.
+            O yt-dlp será atualizado junto de uma futura release do Rovetrack.
           </p>
         )}
         {updates.mode === 'managed' && ytDlp?.managedInstalled && (
@@ -353,17 +353,17 @@ export function UpdateSettings(): React.JSX.Element {
           <ActionButton
             compact
             disabled={pending !== '' || operationActive}
-            title="Restaurar a versão do yt-dlp incluída no RoveTrack"
+            title="Restaurar a versão do yt-dlp incluída no Rovetrack"
             onClick={() => {
               if (
                 window.confirm(
-                  'Restaurar a versão incluída no RoveTrack? Isso desativará a versão independente e usará a distribuída com este aplicativo.'
+                  'Restaurar a versão incluída no Rovetrack? Isso desativará a versão independente e usará a distribuída com este aplicativo.'
                 )
               )
                 void perform('bundled', () => window.api.restoreBundledComponent('yt-dlp'))
             }}
           >
-            Usar versão incluída no RoveTrack
+            Usar versão incluída no Rovetrack
           </ActionButton>
         </div>
       </div>

@@ -1,6 +1,6 @@
 # Arquitetura
 
-O RoveTrack é um aplicativo Electron com TypeScript e React. A arquitetura mantém a interface isolada das APIs do sistema operacional e divide aquisição, processamento e armazenamento em etapas independentes.
+O Rovetrack é um aplicativo Electron com TypeScript e React. A arquitetura mantém a interface isolada das APIs do sistema operacional e divide aquisição, processamento e armazenamento em etapas independentes.
 
 ## Visão geral
 
@@ -65,7 +65,7 @@ Configurações e histórico são persistidos no perfil local do aplicativo pelo
 
 O `UpdateManager` separa duas responsabilidades:
 
-- atualização do RoveTrack por releases públicas do GitHub;
+- atualização do Rovetrack por releases públicas do GitHub;
 - atualização opcional e independente do componente yt-dlp.
 
 Um yt-dlp baixado só é ativado após validação de origem, tamanho, SHA-256 e execução de um health check. A versão empacotada continua disponível como fallback. Instalações e trocas de componente ficam bloqueadas enquanto mídia está sendo processada.

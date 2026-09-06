@@ -93,7 +93,7 @@ function runYtDlp(
   }
 
   return new Promise((resolve, reject) => {
-    context.updateTelemetry({ message: '[RoveTrack] Iniciando provider yt-dlp...' })
+    context.updateTelemetry({ message: '[Rovetrack] Iniciando provider yt-dlp...' })
     const subprocess = customYtDlp.exec(request.sourceUrl, flags, {
       detached: process.platform !== 'win32'
     })

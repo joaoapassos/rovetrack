@@ -95,7 +95,7 @@ export class UrlAccessPolicy {
 
   assertAllowed(sourceUrl: string): void {
     if (!this.allows(sourceUrl)) {
-      throw new Error('Este site não está autorizado nas configurações do RoveTrack.')
+      throw new Error('Este site não está autorizado nas configurações do Rovetrack.')
     }
   }
 }

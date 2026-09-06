@@ -1,4 +1,4 @@
-import type { RoveTrackBackup } from '@shared/contracts/backup'
+import type { RovetrackBackup } from '@shared/contracts/backup'
 import type { ProcessMediaPayload } from '@shared/contracts/media'
 import type { PipelineState } from '@shared/contracts/pipeline'
 import type { ComponentId, UpdateSettings, UpdateState } from '@shared/contracts/updates'
@@ -13,8 +13,8 @@ declare global {
       openExternal: (url: string) => Promise<void>
       getTerms: () => Promise<string>
       getVersion: () => Promise<string>
-      saveBackup: (backup: RoveTrackBackup) => Promise<boolean>
-      openBackup: () => Promise<RoveTrackBackup | null>
+      saveBackup: (backup: RovetrackBackup) => Promise<boolean>
+      openBackup: () => Promise<RovetrackBackup | null>
       processMedia: (payload: ProcessMediaPayload) => Promise<void>
       interruptMedia: (runId: string) => Promise<void>
       getUpdateState: () => Promise<UpdateState>

@@ -2,7 +2,7 @@ import {
   BACKUP_FORMAT,
   BACKUP_SCHEMA_VERSION,
   backupSchema,
-  type RoveTrackBackup
+  type RovetrackBackup
 } from '@shared/contracts/backup'
 import type { AppSettings } from '@shared/contracts/settings'
 import type { DownloadHistoryEntry } from '../types/downloadHistory'
@@ -14,7 +14,7 @@ export function createBackup(
   settings: AppSettings,
   history: DownloadHistoryEntry[],
   applicationVersion: string
-): RoveTrackBackup {
+): RovetrackBackup {
   return backupSchema.parse({
     format: BACKUP_FORMAT,
     schemaVersion: BACKUP_SCHEMA_VERSION,
@@ -27,6 +27,6 @@ export function createBackup(
   })
 }
 
-export function parseBackup(input: unknown): RoveTrackBackup {
+export function parseBackup(input: unknown): RovetrackBackup {
   return backupSchema.parse(input)
 }

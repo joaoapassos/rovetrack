@@ -89,7 +89,7 @@ function RootLayout(): React.JSX.Element {
           <DropdownMenuContent>
             <div className="border-b border-[#32363f] px-4 py-3">
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-[#A2ECFB]">
-                RoveTrack
+                Rovetrack
               </p>
               <p className="mt-1 text-xs text-[#6f767d]">Navegação</p>
             </div>
@@ -189,7 +189,7 @@ function ContentLayout(): React.JSX.Element {
     <main className="flex min-h-screen justify-center bg-[#1b1b1f] px-5 pb-16 pt-24 text-[#f8f8f8] sm:px-8">
       <div className="w-full max-w-4xl">
         <header className="mb-10 border-b border-[#32363f] pb-6 text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.3em] text-[#A2ECFB]">RoveTrack</p>
+          <p className="font-mono text-xs uppercase tracking-[0.3em] text-[#A2ECFB]">Rovetrack</p>
         </header>
         <Outlet />
       </div>

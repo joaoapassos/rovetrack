@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({
-  app: { getAppPath: () => 'C:\\RoveTrack\\app.asar', isPackaged: true }
+  app: { getAppPath: () => 'C:\\Rovetrack\\app.asar', isPackaged: true }
 }))
 
 import { ComponentResolver, resolveBundledYtDlpPath } from './ComponentResolver'

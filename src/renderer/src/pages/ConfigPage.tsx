@@ -88,7 +88,7 @@ export function ConfigPage(): React.JSX.Element {
           ))}
           <button
             type="button"
-            title="Selecionar e importar um backup do RoveTrack"
+            title="Selecionar e importar um backup do Rovetrack"
             onClick={() => void importBackup()}
             className="border border-[#414853] px-3 py-2 text-xs font-bold uppercase"
           >

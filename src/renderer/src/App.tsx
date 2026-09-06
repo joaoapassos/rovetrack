@@ -119,7 +119,7 @@ export function DownloadPage(): React.JSX.Element {
         (site) => site.enabled && site.domains.length > 0
       )
       const message = hasDomainRules
-        ? 'Este site não está autorizado nas configurações do RoveTrack.'
+        ? 'Este site não está autorizado nas configurações do Rovetrack.'
         : 'Informe uma URL HTTPS pública e segura.'
       setError('url', {
         message

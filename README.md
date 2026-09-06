@@ -1,8 +1,8 @@
-# RoveTrack
+# Rovetrack
 
 > Baixe, converta e organize áudio e vídeo em um aplicativo desktop simples, local e open source.
 
-O RoveTrack reúne aquisição, conversão e organização de mídia em uma única interface. Você informa uma URL HTTPS permitida, escolhe um preset e uma pasta de destino; o aplicativo cuida do download, do processamento e do nome final do arquivo.
+O Rovetrack reúne aquisição, conversão e organização de mídia em uma única interface. Você informa uma URL HTTPS permitida, escolhe um preset e uma pasta de destino; o aplicativo cuida do download, do processamento e do nome final do arquivo.
 
 O projeto está em beta (`0.3.0-beta`). Mudanças de comportamento e de contratos internos ainda podem acontecer.
 
@@ -20,7 +20,7 @@ O projeto está em beta (`0.3.0-beta`). Mudanças de comportamento e de contrato
 - notificações sonoras e nativas;
 - atualização do aplicativo e gerenciamento opcional do yt-dlp.
 
-Todo o histórico e todas as preferências ficam no dispositivo. O RoveTrack não possui backend próprio, embora acesse a origem informada e os serviços necessários para buscar mídia e atualizações.
+Todo o histórico e todas as preferências ficam no dispositivo. O Rovetrack não possui backend próprio, embora acesse a origem informada e os serviços necessários para buscar mídia e atualizações.
 
 ## Como funciona
 
@@ -33,7 +33,7 @@ URL HTTPS
   → histórico e relatório local
 ```
 
-O RoveTrack separa a interface React dos recursos nativos do Electron. A comunicação acontece por uma API limitada no preload, e o processo principal valida os dados antes de iniciar o pipeline. Veja a [visão geral da arquitetura](docs/ARCHITECTURE.md) para entender o fluxo.
+O Rovetrack separa a interface React dos recursos nativos do Electron. A comunicação acontece por uma API limitada no preload, e o processo principal valida os dados antes de iniciar o pipeline. Veja a [visão geral da arquitetura](docs/ARCHITECTURE.md) para entender o fluxo.
 
 ## Desenvolvimento local
 
@@ -65,9 +65,9 @@ Os binários necessários do yt-dlp e do FFmpeg são incluídos nos pacotes dist
 
 ## Uso responsável
 
-Use o RoveTrack somente quando você possuir autorização ou outra base legal para acessar, baixar, converter e utilizar o conteúdo. A ferramenta não concede direitos sobre conteúdos de terceiros e não contorna DRM, paywalls ou controles de acesso.
+Use o Rovetrack somente quando você possuir autorização ou outra base legal para acessar, baixar, converter e utilizar o conteúdo. A ferramenta não concede direitos sobre conteúdos de terceiros e não contorna DRM, paywalls ou controles de acesso.
 
-Os [Termos de Uso](TERMS_OF_USE.md) tratam do uso do aplicativo e de conteúdo de terceiros. A [Licença Apache 2.0](LICENSE) trata do uso, estudo, modificação e distribuição do código-fonte do RoveTrack.
+Os [Termos de Uso](TERMS_OF_USE.md) tratam do uso do aplicativo e de conteúdo de terceiros. A [Licença Apache 2.0](LICENSE) trata do uso, estudo, modificação e distribuição do código-fonte do Rovetrack.
 
 ## Contribuindo
 
@@ -77,4 +77,4 @@ Issues, correções e melhorias são bem-vindas. Antes de propor uma mudança gr
 
 Copyright 2026 João Alves Passos.
 
-O RoveTrack é distribuído sob a [Apache License 2.0](LICENSE). Dependências e ferramentas de terceiros permanecem sujeitas às próprias licenças.
+O Rovetrack é distribuído sob a [Apache License 2.0](LICENSE). Dependências e ferramentas de terceiros permanecem sujeitas às próprias licenças.

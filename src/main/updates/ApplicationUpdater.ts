@@ -36,7 +36,7 @@ export class ApplicationUpdater {
       if (this.notifiedVersion !== info.version) {
         this.notifiedVersion = info.version
         this.options.notify(
-          'RoveTrack: atualização disponível',
+          'Rovetrack: atualização disponível',
           `A versão ${info.version} está disponível.`
         )
         void this.persistNotificationState().catch((error) =>

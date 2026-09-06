@@ -1,4 +1,4 @@
-# Documentação do RoveTrack
+# Documentação do Rovetrack
 
 Esta pasta apresenta a base técnica do projeto sem exigir conhecimento prévio de toda a implementação.
 

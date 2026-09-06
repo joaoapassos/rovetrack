@@ -1,14 +1,14 @@
-# Termos de Uso do RoveTrack
+# Termos de Uso do Rovetrack
 
 Última atualização: 6 de setembro de 2026.
 
-Ao instalar ou utilizar o RoveTrack, você declara que leu e concorda com estes Termos de Uso. Caso não concorde, não instale nem utilize o software.
+Ao instalar ou utilizar o Rovetrack, você declara que leu e concorda com estes Termos de Uso. Caso não concorde, não instale nem utilize o software.
 
 ## 1. Finalidade do software
 
-O RoveTrack é uma ferramenta de propósito geral para obtenção, processamento e organização local de conteúdos aos quais o usuário tenha acesso por meio de fontes suportadas. Atualmente, o aplicativo oferece formatos configuráveis de áudio e vídeo, com metadata e thumbnail configurável.
+O Rovetrack é uma ferramenta de propósito geral para obtenção, processamento e organização local de conteúdos aos quais o usuário tenha acesso por meio de fontes suportadas. Atualmente, o aplicativo oferece formatos configuráveis de áudio e vídeo, com metadata e thumbnail configurável.
 
-O RoveTrack não concede acesso a conteúdos, contas ou serviços e não substitui as autorizações exigidas pelo titular do conteúdo, pelo serviço acessado ou pela legislação aplicável.
+O Rovetrack não concede acesso a conteúdos, contas ou serviços e não substitui as autorizações exigidas pelo titular do conteúdo, pelo serviço acessado ou pela legislação aplicável.
 
 ## 2. Responsabilidade do usuário
 
@@ -18,17 +18,17 @@ O uso pessoal não torna uma atividade automaticamente permitida. A legalidade d
 
 ## 3. Direitos autorais e propriedade intelectual
 
-O RoveTrack não concede direitos sobre conteúdos de terceiros, não transfere propriedade intelectual e não representa autorização para redistribuição ou exploração comercial de conteúdo protegido.
+O Rovetrack não concede direitos sobre conteúdos de terceiros, não transfere propriedade intelectual e não representa autorização para redistribuição ou exploração comercial de conteúdo protegido.
 
 A disponibilidade técnica de um conteúdo não significa que seu download ou uso seja autorizado pelo titular dos direitos ou permitido pela legislação aplicável.
 
 ## 4. Termos e restrições de terceiros
 
-Sites, plataformas e outros serviços podem possuir termos de serviço, políticas e restrições próprias. O usuário é responsável por conhecer e respeitar essas regras ao utilizar o RoveTrack com qualquer fonte suportada.
+Sites, plataformas e outros serviços podem possuir termos de serviço, políticas e restrições próprias. O usuário é responsável por conhecer e respeitar essas regras ao utilizar o Rovetrack com qualquer fonte suportada.
 
 ## 5. Conteúdo protegido e usos proibidos
 
-O RoveTrack não deve ser utilizado para:
+O Rovetrack não deve ser utilizado para:
 
 - violar direitos autorais ou outros direitos de terceiros;
 - distribuir conteúdo sem autorização;
@@ -45,7 +45,7 @@ Nada nestes termos pretende afastar direitos ou responsabilidades que não possa
 
 ## 7. Ausência de hospedagem ou catálogo
 
-O RoveTrack funciona essencialmente de forma local. O projeto não hospeda, mantém nem distribui catálogo próprio de conteúdo de terceiros e não oferece um serviço remoto de armazenamento de mídia.
+O Rovetrack funciona essencialmente de forma local. O projeto não hospeda, mantém nem distribui catálogo próprio de conteúdo de terceiros e não oferece um serviço remoto de armazenamento de mídia.
 
 ## 8. Ferramentas de terceiros
 
@@ -53,9 +53,9 @@ O aplicativo pode utilizar componentes externos, incluindo yt-dlp, FFmpeg, Sharp
 
 ## 9. Licença do software
 
-O código-fonte do RoveTrack é disponibilizado sob a [Apache License 2.0](https://github.com/joaoapassos/rovetrack/blob/master/LICENSE). Essa licença permite usar, estudar, modificar e distribuir o software nas condições descritas no arquivo `LICENSE`, incluindo a preservação dos avisos aplicáveis.
+O código-fonte do Rovetrack é disponibilizado sob a [Apache License 2.0](https://github.com/joaoapassos/rovetrack/blob/master/LICENSE). Essa licença permite usar, estudar, modificar e distribuir o software nas condições descritas no arquivo `LICENSE`, incluindo a preservação dos avisos aplicáveis.
 
-Estes Termos de Uso não substituem nem restringem os direitos concedidos pela Apache License 2.0 sobre o código do RoveTrack. Da mesma forma, a licença do código não concede direitos sobre mídias processadas, marcas, serviços ou conteúdos de terceiros.
+Estes Termos de Uso não substituem nem restringem os direitos concedidos pela Apache License 2.0 sobre o código do Rovetrack. Da mesma forma, a licença do código não concede direitos sobre mídias processadas, marcas, serviços ou conteúdos de terceiros.
 
 Contribuições e redistribuições permanecem sujeitas às condições da Apache License 2.0. Componentes de terceiros incluídos ou utilizados pelo projeto conservam suas próprias licenças.
 

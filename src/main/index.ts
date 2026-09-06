@@ -59,7 +59,7 @@ function createWindow(): void {
     height: 800,
     show: false,
     autoHideMenuBar: true,
-    title: 'RoveTrack',
+    title: 'Rovetrack',
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -167,7 +167,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle('data:saveBackup', async (_event, input: unknown) => {
     const backup = backupSchema.parse(input)
     const { canceled, filePath } = await dialog.showSaveDialog({
-      title: 'Exportar dados do RoveTrack',
+      title: 'Exportar dados do Rovetrack',
       defaultPath: `rovetrack-backup-${new Date().toISOString().slice(0, 10)}.json`,
       filters: [{ name: 'Backup JSON', extensions: ['json'] }]
     })
@@ -178,7 +178,7 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('data:openBackup', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: 'Importar dados do RoveTrack',
+      title: 'Importar dados do Rovetrack',
       properties: ['openFile'],
       filters: [{ name: 'Backup JSON', extensions: ['json'] }]
     })
@@ -236,10 +236,10 @@ function registerIpcHandlers(): void {
         const wasInterrupted = controller.state === 'interrupted'
         new Notification({
           title: wasInterrupted
-            ? 'RoveTrack: operação interrompida'
+            ? 'Rovetrack: operação interrompida'
             : report.failed > 0
-              ? 'RoveTrack: concluído com falhas'
-              : 'RoveTrack',
+              ? 'Rovetrack: concluído com falhas'
+              : 'Rovetrack',
           body: wasInterrupted
             ? 'O download foi interrompido e o workspace temporário foi limpo.'
             : report.failed > 0
@@ -253,7 +253,7 @@ function registerIpcHandlers(): void {
     } catch (error) {
       if (nativeNotificationsEnabled && Notification.isSupported()) {
         new Notification({
-          title: 'RoveTrack: falha crítica',
+          title: 'Rovetrack: falha crítica',
           body: 'O processamento não pôde ser concluído. Consulte o relatório.',
           icon,
           silent: true

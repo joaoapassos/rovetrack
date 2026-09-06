@@ -143,7 +143,7 @@ export class ComponentUpdateManager {
         this.stored.lastNotifiedVersion !== release.version
       ) {
         this.options.notify(
-          'RoveTrack: atualização disponível',
+          'Rovetrack: atualização disponível',
           `yt-dlp ${release.version} está disponível.`
         )
         this.stored.lastNotifiedVersion = release.version
@@ -163,7 +163,7 @@ export class ComponentUpdateManager {
   async install(): Promise<void> {
     this.assertIdleOperation()
     if (this.settings.mode === 'managed') {
-      throw new Error('O modo Gerenciado utiliza exclusivamente o yt-dlp incluído no RoveTrack.')
+      throw new Error('O modo Gerenciado utiliza exclusivamente o yt-dlp incluído no Rovetrack.')
     }
     const channel = this.channel()
     this.setStatus('updating')

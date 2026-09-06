@@ -1,5 +1,5 @@
 appId: com.rovetrack.app
-productName: RoveTrack
+productName: Rovetrack
 publish:
   provider: github
   owner: joaoapassos

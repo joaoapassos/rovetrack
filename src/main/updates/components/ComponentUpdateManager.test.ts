@@ -6,7 +6,7 @@ import { ComponentResolver } from './ComponentResolver'
 import { ComponentUpdateManager } from './ComponentUpdateManager'
 
 vi.mock('electron', () => ({
-  app: { getAppPath: () => 'C:\\RoveTrack\\app.asar', isPackaged: true }
+  app: { getAppPath: () => 'C:\\Rovetrack\\app.asar', isPackaged: true }
 }))
 
 const advanced: UpdateSettings = {

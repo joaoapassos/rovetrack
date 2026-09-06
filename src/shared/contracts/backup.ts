@@ -56,4 +56,4 @@ export const backupSchema = z
   })
   .strict()
 
-export type RoveTrackBackup = z.infer<typeof backupSchema>
+export type RovetrackBackup = z.infer<typeof backupSchema>

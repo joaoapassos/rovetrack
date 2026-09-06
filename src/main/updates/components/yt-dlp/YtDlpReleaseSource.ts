@@ -56,7 +56,7 @@ async function fetchWithLimit(url: string, maximumBytes: number): Promise<Buffer
     const response = await fetch(url, {
       redirect: 'follow',
       signal: controller.signal,
-      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'RoveTrack-Updater' }
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Rovetrack-Updater' }
     })
     if (!response.ok) throw new Error(`A fonte oficial respondeu com HTTP ${response.status}.`)
     const finalUrl = new URL(response.url)

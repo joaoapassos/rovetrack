@@ -1,4 +1,4 @@
-import type { RoveTrackBackup } from '@shared/contracts/backup'
+import type { RovetrackBackup } from '@shared/contracts/backup'
 import type { ProcessMediaPayload } from '@shared/contracts/media'
 import type { PipelineState } from '@shared/contracts/pipeline'
 import type { ComponentId, UpdateSettings, UpdateState } from '@shared/contracts/updates'
@@ -14,9 +14,9 @@ const api = {
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', url),
   getTerms: (): Promise<string> => ipcRenderer.invoke('app:getTerms'),
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
-  saveBackup: (backup: RoveTrackBackup): Promise<boolean> =>
+  saveBackup: (backup: RovetrackBackup): Promise<boolean> =>
     ipcRenderer.invoke('data:saveBackup', backup),
-  openBackup: (): Promise<RoveTrackBackup | null> => ipcRenderer.invoke('data:openBackup'),
+  openBackup: (): Promise<RovetrackBackup | null> => ipcRenderer.invoke('data:openBackup'),
   processMedia: (payload: ProcessMediaPayload): Promise<void> =>
     ipcRenderer.invoke('media:process', payload),
   interruptMedia: (runId: string): Promise<void> =>
