@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  app: { isPackaged: true, getVersion: () => '0.2.0-beta' },
+  app: { isPackaged: true, getVersion: () => '0.3.0-beta' },
   handlers: new Map<string, (...arguments_: unknown[]) => void>(),
   checkForUpdates: vi.fn().mockResolvedValue(undefined),
   downloadUpdate: vi.fn().mockResolvedValue(undefined),
