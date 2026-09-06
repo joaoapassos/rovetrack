@@ -4,7 +4,7 @@
 
 O Rovetrack reúne aquisição, conversão e organização de mídia em uma única interface. Você informa uma URL HTTPS permitida, escolhe um preset e uma pasta de destino; o aplicativo cuida do download, do processamento e do nome final do arquivo.
 
-O projeto está em beta (`0.3.0-beta`). Mudanças de comportamento e de contratos internos ainda podem acontecer.
+O projeto está em beta (`0.3.1-beta`). Mudanças de comportamento e de contratos internos ainda podem acontecer.
 
 ## Principais recursos
 
