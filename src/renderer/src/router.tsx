@@ -132,14 +132,14 @@ function RootLayout(): React.JSX.Element {
       </nav>
 
       <Outlet />
-
-      {!isHome && isActive && (
+{/* !isHome && isActive */}
+      { true && (
         <button
           type="button"
           title={`Voltar ao download em andamento — ${Math.round(progress)}% concluído`}
           aria-label={`Voltar ao download em andamento, ${Math.round(progress)}% concluído`}
           onClick={() => navigate('/')}
-          className="group fixed bottom-5 left-5 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-[#414853] bg-[#222222] text-[#a0a4a8] shadow-2xl transition-all hover:scale-105 hover:border-[#A2ECFB] hover:text-[#A2ECFB]"
+          className="fixed bottom-5 left-5 z-40 flex h-15 w-15 items-center justify-center rounded-full border border-[#414853] bg-[#222222] text-[#a0a4a8] shadow-2xl transition-all hover:scale-105 hover:border-[#A2ECFB] hover:text-[#A2ECFB]"
         >
           <svg
             className="absolute inset-1 h-12 w-12 -rotate-90"
@@ -147,8 +147,8 @@ function RootLayout(): React.JSX.Element {
             aria-hidden="true"
           >
             <circle
-              cx="18"
-              cy="18"
+              cx="17"
+              cy="19"
               r="16"
               fill="none"
               stroke="currentColor"
@@ -156,8 +156,8 @@ function RootLayout(): React.JSX.Element {
               strokeWidth="2"
             />
             <circle
-              cx="18"
-              cy="18"
+              cx="17"
+              cy="19"
               r="16"
               fill="none"
               pathLength="100"
