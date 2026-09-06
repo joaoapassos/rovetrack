@@ -37,6 +37,24 @@ Autorizar um domínio não garante que o provider consiga processá-lo. A polít
 - histórico local acessível pelo modal rápido e por uma página completa, com retry fiel;
 - notificações sonoras e nativas;
 - prevenção de sobrescrita por nomes repetidos.
+- atualização manual do RoveTrack por GitHub Releases e atualização independente opcional do yt-dlp.
+
+## Sistema de atualizações
+
+O updater mantém duas responsabilidades separadas:
+
+- **Application Update:** `electron-updater` consulta as releases públicas de `joaoapassos/rovetrack`. O download só começa por ação do usuário e a instalação exige uma segunda ação explícita. O aplicativo nunca reinicia durante um download/processamento de mídia.
+- **Component Update:** o RoveTrack consulta somente releases oficiais do yt-dlp. O binário independente fica em `<userData>/components/yt-dlp`; a cópia empacotada nunca é sobrescrita e permanece como fallback.
+
+Configurações oferece três políticas para o yt-dlp:
+
+- **Gerenciado pelo RoveTrack (padrão):** usa sempre a versão incluída e testada com a release instalada. Não faz consultas independentes do yt-dlp.
+- **Stable:** consulta o canal stable oficial com cooldown de 24 horas e deixa a instalação a cargo do usuário.
+- **Avançado:** permite escolher `stable`, `nightly` ou `master`, além de controlar verificação, notificação e instalação automática. A instalação automática vem desligada por padrão.
+
+Antes de ativar um componente independente, o Main seleciona um asset conhecido para a plataforma/arquitetura, restringe origem e redirects a HTTPS/hosts oficiais, limita o tamanho, compara o SHA-256 com `SHA2-256SUMS` e executa `yt-dlp --version` com timeout. O candidato só então é movido para o diretório versionado e ativado.
+
+O estado operacional preserva a origem e a versão anteriores. Assim, a interface pode fazer rollback offline para a versão managed anterior ou restaurar a versão bundled. Downloads incompletos, checksum inválido ou falha no health check não alteram a versão ativa. Trocas de componente e instalação do aplicativo são bloqueadas enquanto há mídia em processamento.
 
 ## Arquitetura
 
@@ -124,6 +142,9 @@ As configurações possuem schema Zod versionado e defaults centralizados. O bac
 - navegação inesperada bloqueada;
 - abertura externa restrita a HTTPS;
 - uma única execução ativa por vez.
+- canais, componentes, hosts, assets e payloads do updater restritos por enums/allowlists no Main;
+- componentes independentes verificados por SHA-256 e health check antes da ativação atômica;
+- nenhum token GitHub é armazenado ou distribuído pelo aplicativo.
 
 ## Requisitos
 
@@ -163,6 +184,18 @@ Scripts disponíveis:
 
 O build Windows é o alvo validado com maior frequência neste ambiente. Os targets macOS e Linux exigem validação nas respectivas plataformas e pipelines de distribuição. O instalador assistido do Windows e o DMG usam os Termos de Uso disponíveis em `build/eula_pt_BR.txt`.
 
+### Publicar uma release atualizável
+
+1. Atualize a versão SemVer no `package.json` (por exemplo, `0.3.0-beta.1`).
+2. Se desejar mudar a versão bundled do yt-dlp, execute `npm run update:yt-dlp` e valide a combinação antes da release.
+3. Execute `npm run typecheck`, `npm run lint`, `npm test` e `npm run build`.
+4. Gere os pacotes da plataforma com os scripts de build correspondentes.
+5. Publique no GitHub Release o instalador/pacote e **todos os metadados gerados pelo electron-builder**, como `latest.yml`, `latest-mac.yml`, `latest-linux.yml` e arquivos `.blockmap` aplicáveis.
+
+O provider GitHub está configurado no `electron-builder.yml`. Um `GH_TOKEN`/`GITHUB_TOKEN`, quando necessário para publicar, deve existir somente no ambiente de desenvolvimento ou CI; usuários não precisam de token para consultar releases públicas. Os scripts locais não publicam por conta própria.
+
+Auto-update de produção exige a infraestrutura de assinatura adequada. Windows/NSIS deve ser validado com code signing antes da distribuição ampla. macOS ainda precisa de assinatura e notarização; não é considerado pronto para auto-update em produção. No Linux, o fluxo automático é adequado principalmente ao AppImage e deve ser validado na distribuição alvo; DEB e Snap podem seguir os respectivos gerenciadores de pacotes.
+
 ## Estrutura
 
 ```text
@@ -172,6 +205,7 @@ src/
 │   ├── processors/      # resolver e pós-processamento de áudio/vídeo
 │   ├── services/storage # filename, colisão e movimentação
 │   ├── pipeline.ts      # orquestração
+│   ├── updates/         # application updater, component manager, resolver e fontes oficiais
 │   └── index.ts         # Electron, segurança e IPC
 ├── preload/             # window.api
 ├── renderer/            # rotas, páginas, configurações, interface e histórico

@@ -10,7 +10,7 @@ import type {
   DownloadProvider,
   DownloadResult
 } from '../contracts'
-import { runYtDlp, type YtDlpRunner } from './process'
+import type { YtDlpRunner } from './process'
 
 interface YtInfoJson {
   id?: string
@@ -44,7 +44,7 @@ export class YtDlpProvider implements DownloadProvider {
     outputFormats: [...AUDIO_OUTPUT_FORMATS, ...VIDEO_OUTPUT_FORMATS]
   } as const
 
-  constructor(private readonly runner: YtDlpRunner = runYtDlp) {}
+  constructor(private readonly runner: YtDlpRunner) {}
 
   supports(request: MediaDownloadRequest): boolean {
     const formats = request.mediaType === 'audio' ? AUDIO_OUTPUT_FORMATS : VIDEO_OUTPUT_FORMATS

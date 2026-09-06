@@ -1,20 +1,31 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { AllowedSitesSettings } from '../components/settings/AllowedSitesSettings'
 import { DownloadPresetsSettings } from '../components/settings/DownloadPresetsSettings'
 import { NotificationsSettings } from '../components/settings/NotificationsSettings'
+import { UpdateSettings } from '../components/settings/UpdateSettings'
 import { useAppSettings } from '../settings/AppSettingsContext'
 import { type BackupScope, createBackup, parseBackup } from '../settings/backup'
 import { listDownloadHistory, mergeDownloadHistory } from '../utils/downloadHistory'
 
 export function ConfigPage(): React.JSX.Element {
-  const { settings, updateSettings, restoreDefaults } = useAppSettings()
+  const { settings, updateSettings, restoreDefaults, applicationVersion } = useAppSettings()
   const [dataMessage, setDataMessage] = useState('')
+  const location = useLocation()
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('section') !== 'updates') return
+    requestAnimationFrame(() => {
+      const section = document.getElementById('updates')
+      section?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      section?.focus({ preventScroll: true })
+    })
+  }, [location.search])
 
   const exportBackup = async (scope: BackupScope) => {
     try {
       setDataMessage('')
-      const backup = createBackup(scope, settings, await listDownloadHistory())
+      const backup = createBackup(scope, settings, await listDownloadHistory(), applicationVersion)
       if (await window.api.saveBackup(backup)) setDataMessage('Backup exportado com sucesso.')
     } catch (error) {
       setDataMessage(error instanceof Error ? error.message : String(error))
@@ -53,6 +64,7 @@ export function ConfigPage(): React.JSX.Element {
       </header>
 
       <NotificationsSettings />
+      <UpdateSettings />
       <AllowedSitesSettings />
       <DownloadPresetsSettings />
 

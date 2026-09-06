@@ -12,13 +12,14 @@ export type BackupScope = 'settings' | 'history' | 'all'
 export function createBackup(
   scope: BackupScope,
   settings: AppSettings,
-  history: DownloadHistoryEntry[]
+  history: DownloadHistoryEntry[],
+  applicationVersion: string
 ): RoveTrackBackup {
   return backupSchema.parse({
     format: BACKUP_FORMAT,
     schemaVersion: BACKUP_SCHEMA_VERSION,
     createdAt: new Date().toISOString(),
-    applicationVersion: '0.2.0-beta',
+    applicationVersion,
     sections: {
       ...(scope !== 'history' && { settings }),
       ...(scope !== 'settings' && { history })

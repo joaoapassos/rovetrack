@@ -1,4 +1,14 @@
-import { Download, History, Home, Info, Menu, ScrollText, Settings, X } from 'lucide-react'
+import {
+  CircleArrowUp,
+  Download,
+  History,
+  Home,
+  Info,
+  Menu,
+  ScrollText,
+  Settings,
+  X
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   HashRouter,
@@ -20,7 +30,7 @@ import { AboutPage } from './pages/AboutPage'
 import { ConfigPage } from './pages/ConfigPage'
 import { HistoryPage } from './pages/HistoryPage'
 import { TermsPage } from './pages/TermsPage'
-import { AppSettingsProvider } from './settings/AppSettingsContext'
+import { AppSettingsProvider, useAppSettings } from './settings/AppSettingsContext'
 import {
   getDownloadTelemetry,
   publishDownloadTelemetry,
@@ -41,6 +51,7 @@ function RootLayout(): React.JSX.Element {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [telemetry, setTelemetry] = useState(getDownloadTelemetry)
+  const { updateState } = useAppSettings()
   const isHome = location.pathname === '/'
   const isActive = ['preparing', 'downloading', 'forging'].includes(telemetry?.status ?? '')
   const progress = calculateGlobalProgress(telemetry)
@@ -56,7 +67,10 @@ function RootLayout(): React.JSX.Element {
 
   return (
     <>
-      <nav className="fixed left-5 top-5 z-40" aria-label="Navegação principal">
+      <nav
+        className="fixed left-5 top-5 z-40 flex items-center gap-2"
+        aria-label="Navegação principal"
+      >
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button
@@ -93,11 +107,28 @@ function RootLayout(): React.JSX.Element {
                 >
                   <Icon className="h-4 w-4" aria-hidden="true" />
                   {label}
+                  {to === '/config' && updateState?.hasAvailableUpdate && (
+                    <span
+                      className="ml-auto h-2 w-2 rounded-full bg-[#A2ECFB]"
+                      title="Atualização disponível"
+                    />
+                  )}
                 </DropdownMenuItem>
               ))}
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
+        {updateState?.hasAvailableUpdate && (
+          <button
+            type="button"
+            title="Abrir configurações de atualizações"
+            aria-label="Atualização disponível; abrir configurações"
+            onClick={() => navigate('/config?section=updates')}
+            className="flex h-10 w-10 animate-pulse items-center justify-center border border-[#A2ECFB] bg-[#222222] text-[#A2ECFB] shadow-lg transition-colors hover:bg-[#A2ECFB]/10"
+          >
+            <CircleArrowUp className="h-5 w-5" aria-hidden="true" />
+          </button>
+        )}
       </nav>
 
       <Outlet />

@@ -1,7 +1,6 @@
 import { join } from 'node:path'
 import type { MediaDownloadRequest } from '@shared/contracts/media'
 import type { PipelineReportError } from '@shared/contracts/pipeline'
-import { app } from 'electron'
 import ffmpegStatic from 'ffmpeg-static'
 import { create } from 'yt-dlp-exec'
 import { RunInterruptedError } from '../../control/RunController'
@@ -52,22 +51,24 @@ export function buildYtDlpMediaFlags(request: MediaDownloadRequest): Record<stri
   }
 }
 
-function resolveBinaries(): { ffmpegPath: string; ytDlpPath: string } {
+function resolveFfmpeg(): string {
   let ffmpegPath = ffmpegStatic
-  const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'
-  let ytDlpPath = join(app.getAppPath(), 'node_modules', 'yt-dlp-exec', 'bin', binaryName)
-
-  if (app.isPackaged) {
-    if (ffmpegPath) ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked')
-    ytDlpPath = ytDlpPath.replace('app.asar', 'app.asar.unpacked')
-  }
+  if (ffmpegPath) ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked')
 
   if (!ffmpegPath) throw new Error('Binário do FFmpeg não encontrado no sistema.')
-  return { ffmpegPath, ytDlpPath }
+  return ffmpegPath
 }
 
-export const runYtDlp: YtDlpRunner = (request, context) => {
-  const { ffmpegPath, ytDlpPath } = resolveBinaries()
+export function createYtDlpRunner(resolveYtDlpPath: () => string): YtDlpRunner {
+  return (request, context) => runYtDlp(request, context, resolveYtDlpPath())
+}
+
+function runYtDlp(
+  request: MediaDownloadRequest,
+  context: DownloadContext,
+  ytDlpPath: string
+): Promise<YtDlpRunResult> {
+  const ffmpegPath = resolveFfmpeg()
   const customYtDlp = create(ytDlpPath)
   type CurrentFlags = NonNullable<Parameters<typeof customYtDlp.exec>[1]> & {
     extractorArgs: string

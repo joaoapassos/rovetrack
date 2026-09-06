@@ -9,7 +9,7 @@ import {
 
 describe('AppSettings', () => {
   it('possui defaults únicos para Música e Vídeo', () => {
-    expect(APP_SETTINGS_SCHEMA_VERSION).toBe(2)
+    expect(APP_SETTINGS_SCHEMA_VERSION).toBe(3)
     expect(DEFAULT_DOWNLOAD_PRESETS).toMatchObject([
       {
         id: 'music',
@@ -51,15 +51,34 @@ describe('AppSettings', () => {
     const {
       schemaVersion: _version,
       notifications: _notifications,
+      updates: _updates,
       ...legacy
     } = cloneDefaultSettings()
     expect(parseAppSettings(legacy)).toMatchObject({
       schemaVersion: APP_SETTINGS_SCHEMA_VERSION,
-      notifications: { volume: 50, nativeEnabled: true }
+      notifications: { volume: 50, nativeEnabled: true },
+      updates: { mode: 'managed' }
     })
     expect(parseAppSettings({ ...legacy, schemaVersion: 1 }).schemaVersion).toBe(
       APP_SETTINGS_SCHEMA_VERSION
     )
+  })
+
+  it('mantém managed como padrão seguro e valida canais avançados', () => {
+    const settings = cloneDefaultSettings()
+    expect(settings.updates).toMatchObject({
+      mode: 'managed',
+      advanced: { ytDlp: { channel: 'nightly', autoInstall: false } }
+    })
+    expect(
+      appSettingsSchema.safeParse({
+        ...settings,
+        updates: {
+          ...settings.updates,
+          advanced: { ytDlp: { ...settings.updates.advanced.ytDlp, channel: 'custom' } }
+        }
+      }).success
+    ).toBe(false)
   })
 
   it('aceita CRUD de sites e presets com formatos compatíveis', () => {

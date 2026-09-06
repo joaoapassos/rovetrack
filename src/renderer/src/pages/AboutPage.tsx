@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
+import { useAppSettings } from '../settings/AppSettingsContext'
 
 export function AboutPage(): React.JSX.Element {
+  const { applicationVersion } = useAppSettings()
   return (
     <article className="mx-auto flex flex-col gap-3 border border-[#32363f] bg-[#222222] p-7 sm:p-9">
       <h2 className="text-center text-2xl font-bold">Sobre o RoveTrack</h2>
@@ -11,7 +13,7 @@ export function AboutPage(): React.JSX.Element {
       <dl className="grid gap-3 font-mono text-sm sm:grid-cols-2">
         <div>
           <dt className="text-[#6f767d]">Versão</dt>
-          <dd>0.2.0-beta</dd>
+          <dd>{applicationVersion}</dd>
         </div>
         <div>
           <dt className="text-[#6f767d]">Licença de uso</dt>

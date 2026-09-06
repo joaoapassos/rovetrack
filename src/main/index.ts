@@ -2,6 +2,7 @@ import { readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { backupSchema, MAX_BACKUP_BYTES } from '@shared/contracts/backup'
+import { componentIdSchema, updateSettingsSchema } from '@shared/contracts/updates'
 import { UrlAccessPolicy } from '@shared/security/urlAccessPolicy'
 import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron'
 import icon from '../../resources/icon.png?asset'
@@ -19,14 +20,20 @@ import { AudioMp3Processor } from './processors/audio/AudioMp3Processor'
 import { ProcessorResolver } from './processors/ProcessorResolver'
 import { VideoProcessor } from './processors/video/VideoProcessor'
 import { ProviderResolver } from './providers/ProviderResolver'
+import { createYtDlpRunner } from './providers/yt-dlp/process'
 import { YtDlpProvider } from './providers/yt-dlp/YtDlpProvider'
 import { isAllowedExternalUrl } from './security/externalNavigation'
 import { OutputStorage } from './services/storage/OutputStorage'
 import { updateTaskbarProgress } from './taskbarProgress'
+import { ComponentResolver } from './updates/components/ComponentResolver'
+import { UpdateManager } from './updates/UpdateManager'
 import { cleanWorkspace, prepareWorkspace } from './utils/workspace'
 
+const componentResolver = new ComponentResolver()
 const processMedia = createMediaPipeline({
-  providerResolver: new ProviderResolver([new YtDlpProvider()]),
+  providerResolver: new ProviderResolver([
+    new YtDlpProvider(createYtDlpRunner(() => componentResolver.resolveYtDlp()))
+  ]),
   processorResolver: new ProcessorResolver([
     new AudioMp3Processor(),
     new AudioFileProcessor(),
@@ -39,6 +46,7 @@ const processMedia = createMediaPipeline({
 
 let nativeNotificationsEnabled = true
 let activeRun: { runId: string; senderId: number; controller: RunController } | null = null
+let updateManager: UpdateManager | null = null
 
 async function openAllowedExternalUrl(url: string): Promise<void> {
   if (!isAllowedExternalUrl(url)) return
@@ -109,6 +117,53 @@ function registerIpcHandlers(): void {
     return readFile(termsPath, 'utf8')
   })
 
+  ipcMain.handle('app:getVersion', () => app.getVersion())
+
+  ipcMain.handle('updates:getState', () => {
+    if (!updateManager) throw new Error('O sistema de atualizações ainda não está pronto.')
+    return updateManager.getState()
+  })
+
+  ipcMain.handle('updates:configure', (_event, input: unknown) => {
+    if (!updateManager) throw new Error('O sistema de atualizações ainda não está pronto.')
+    updateManager.configure(updateSettingsSchema.parse(input))
+    return updateManager.getState()
+  })
+
+  ipcMain.handle('updates:check', async () => {
+    if (!updateManager) throw new Error('O sistema de atualizações ainda não está pronto.')
+    await Promise.allSettled([updateManager.application.check(), updateManager.components.check()])
+    return updateManager.getState()
+  })
+
+  ipcMain.handle('updates:downloadApplication', async () => {
+    if (!updateManager) throw new Error('O sistema de atualizações ainda não está pronto.')
+    await updateManager.application.download()
+  })
+
+  ipcMain.handle('updates:installApplication', () => {
+    if (!updateManager) throw new Error('O sistema de atualizações ainda não está pronto.')
+    updateManager.application.install()
+  })
+
+  ipcMain.handle('updates:updateComponent', async (_event, input: unknown) => {
+    componentIdSchema.parse(input)
+    if (!updateManager) throw new Error('O sistema de atualizações ainda não está pronto.')
+    await updateManager.components.install()
+  })
+
+  ipcMain.handle('updates:rollbackComponent', async (_event, input: unknown) => {
+    componentIdSchema.parse(input)
+    if (!updateManager) throw new Error('O sistema de atualizações ainda não está pronto.')
+    await updateManager.components.rollback()
+  })
+
+  ipcMain.handle('updates:restoreBundledComponent', async (_event, input: unknown) => {
+    componentIdSchema.parse(input)
+    if (!updateManager) throw new Error('O sistema de atualizações ainda não está pronto.')
+    await updateManager.components.restoreBundled()
+  })
+
   ipcMain.handle('data:saveBackup', async (_event, input: unknown) => {
     const backup = backupSchema.parse(input)
     const { canceled, filePath } = await dialog.showSaveDialog({
@@ -167,6 +222,7 @@ function registerIpcHandlers(): void {
     const controller = new RunController()
     const mainWindow = BrowserWindow.fromWebContents(event.sender)
     activeRun = { runId: payload.runId, senderId: event.sender.id, controller }
+    updateManager?.operationChanged()
 
     try {
       const destinationDirectory = await validateDirectoryPath(payload.request.destinationDirectory)
@@ -207,6 +263,7 @@ function registerIpcHandlers(): void {
     } finally {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(-1)
       if (activeRun?.runId === payload.runId) activeRun = null
+      updateManager?.operationFinished()
     }
   })
 
@@ -229,9 +286,20 @@ function registerIpcHandlers(): void {
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.rovetrack.app')
+  updateManager = new UpdateManager({
+    componentResolver,
+    isOperationActive: () => activeRun !== null,
+    nativeNotificationsEnabled: () => nativeNotificationsEnabled
+  })
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
   registerIpcHandlers()
-  createWindow()
+  void updateManager
+    .initialize()
+    .catch((error) => console.error('[updates] Falha ao inicializar:', error))
+    .finally(() => {
+      createWindow()
+      void updateManager?.startupCheck()
+    })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

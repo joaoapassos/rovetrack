@@ -8,8 +8,9 @@ import {
   thumbnailOptionsSchema,
   VIDEO_OUTPUT_FORMATS
 } from './media'
+import { DEFAULT_UPDATE_SETTINGS, updateSettingsSchema } from './updates'
 
-export const APP_SETTINGS_SCHEMA_VERSION = 2 as const
+export const APP_SETTINGS_SCHEMA_VERSION = 3 as const
 
 const normalizedDomainSchema = z
   .string()
@@ -70,7 +71,8 @@ export const appSettingsSchema = z
     schemaVersion: z.literal(APP_SETTINGS_SCHEMA_VERSION),
     allowedSites: z.array(allowedSiteSchema).max(100),
     downloadPresets: z.array(downloadPresetSchema).min(1).max(50),
-    notifications: notificationSettingsSchema
+    notifications: notificationSettingsSchema,
+    updates: updateSettingsSchema
   })
   .strict()
   .superRefine((settings, context) => {
@@ -123,7 +125,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     ...preset,
     thumbnail: { ...preset.thumbnail }
   })),
-  notifications: { ...DEFAULT_NOTIFICATION_SETTINGS }
+  notifications: { ...DEFAULT_NOTIFICATION_SETTINGS },
+  updates: structuredClone(DEFAULT_UPDATE_SETTINGS)
 }
 
 export function cloneDefaultSettings(): AppSettings {
@@ -137,13 +140,14 @@ export function parseAppSettings(input: unknown): AppSettings {
   if (!input || typeof input !== 'object' || Array.isArray(input))
     return appSettingsSchema.parse(input)
   const legacy = input as Record<string, unknown>
-  if (legacy.schemaVersion !== undefined && legacy.schemaVersion !== 1) {
+  if (![undefined, 1, 2].includes(legacy.schemaVersion as never)) {
     return appSettingsSchema.parse(input)
   }
 
   return appSettingsSchema.parse({
     ...legacy,
     schemaVersion: APP_SETTINGS_SCHEMA_VERSION,
-    notifications: DEFAULT_NOTIFICATION_SETTINGS
+    notifications: legacy.notifications ?? DEFAULT_NOTIFICATION_SETTINGS,
+    updates: DEFAULT_UPDATE_SETTINGS
   })
 }
