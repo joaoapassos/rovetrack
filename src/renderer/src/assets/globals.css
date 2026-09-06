@@ -66,3 +66,31 @@ input[type="checkbox"],
 input[type="range"] {
   cursor: pointer;
 }
+
+/* Largura da barra de rolagem */
+::-webkit-scrollbar {
+  width: 16px;
+}
+
+/* Fundo da barra de rolagem (trilho) */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Parte móvel que se arrasta (alça) */
+::-webkit-scrollbar-thumb {
+  background-color: #474747;
+  border-radius: 10px;
+  
+  /* Cria uma borda transparente que funciona como o padding */
+  border: 5px solid transparent;
+  
+  /* Garante que a cor de fundo não invada a área da borda */
+  background-clip: padding-box; 
+}
+
+/* Cor da alça ao passar o mouse */
+::-webkit-scrollbar-thumb:hover {
+  border: 5px solid transparent;
+  background-color: #393939;
+}
