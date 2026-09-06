@@ -5,7 +5,6 @@ import { UrlAccessPolicy } from '@shared/security/urlAccessPolicy'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import notificationSound from './assets/notification.mp3'
 import { AppHeader } from './components/AppHeader'
 import { DownloadForm } from './components/DownloadForm'
 import { NotificationControls } from './components/NotificationControls'
@@ -51,7 +50,6 @@ export function DownloadPage(): React.JSX.Element {
   )
   const [controlPending, setControlPending] = useState(false)
   const [actionError, setActionError] = useState('')
-  const notificationVolumeRef = useRef(settings.notifications.volume)
 
   const {
     register,
@@ -86,17 +84,9 @@ export function DownloadPage(): React.JSX.Element {
   useEffect(() => subscribeDownloadActivity(setTelemetry), [])
 
   useEffect(() => {
-    notificationVolumeRef.current = settings.notifications.volume
-  }, [settings.notifications.volume])
-
-  useEffect(() => {
     if (!telemetry || !isTerminalStatus(telemetry.status)) return
     setSelectedReport(telemetry.report)
     setIsReportOpen(true)
-    if (notificationVolumeRef.current === 0) return
-    const audio = new Audio(notificationSound)
-    audio.volume = notificationVolumeRef.current / 100
-    audio.play().catch(console.error)
   }, [telemetry])
 
   const onSubmit = async (data: DownloadFormData) => {

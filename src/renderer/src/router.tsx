@@ -9,7 +9,7 @@ import {
   Settings,
   X
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   HashRouter,
   Navigate,
@@ -20,6 +20,7 @@ import {
   useRoutes
 } from 'react-router-dom'
 import { DownloadPage } from './App'
+import notificationSound from './assets/notification.mp3'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,7 +52,9 @@ function RootLayout(): React.JSX.Element {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [telemetry, setTelemetry] = useState(getDownloadTelemetry)
-  const { updateState } = useAppSettings()
+  const { settings, updateState } = useAppSettings()
+  const notificationVolumeRef = useRef(settings.notifications.volume)
+  const lastNotifiedRunIdRef = useRef<string | null>(null)
   const isHome = location.pathname === '/'
   const isActive = ['preparing', 'downloading', 'forging'].includes(telemetry?.status ?? '')
   const progress = calculateGlobalProgress(telemetry)
@@ -64,6 +67,27 @@ function RootLayout(): React.JSX.Element {
       unsubscribeActivity()
     }
   }, [])
+
+  useEffect(() => {
+    notificationVolumeRef.current = settings.notifications.volume
+  }, [settings.notifications.volume])
+
+  useEffect(() => {
+    if (
+      !telemetry ||
+      !['success', 'partial', 'interrupted', 'error'].includes(telemetry.status) ||
+      lastNotifiedRunIdRef.current === telemetry.runId
+    ) {
+      return
+    }
+
+    lastNotifiedRunIdRef.current = telemetry.runId
+    if (notificationVolumeRef.current === 0) return
+
+    const audio = new Audio(notificationSound)
+    audio.volume = notificationVolumeRef.current / 100
+    audio.play().catch(console.error)
+  }, [telemetry])
 
   return (
     <>
