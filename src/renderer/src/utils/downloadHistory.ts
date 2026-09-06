@@ -9,6 +9,8 @@ import {
 } from '../schemas/downloadHistory'
 import type { DownloadHistoryEntry } from '../types/downloadHistory'
 
+export type HistoryStatusFilter = DownloadHistoryEntry['status'] | 'all'
+
 export { HISTORY_LIMIT, HISTORY_SCHEMA_VERSION } from '../schemas/downloadHistory'
 export type { DownloadHistoryEntry } from '../types/downloadHistory'
 
@@ -56,6 +58,41 @@ export function limitDownloadHistory(
   return [...entries]
     .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
     .slice(0, limit)
+}
+
+const normalizeSearchText = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+
+export function filterDownloadHistory(
+  entries: DownloadHistoryEntry[],
+  query: string,
+  status: HistoryStatusFilter
+): DownloadHistoryEntry[] {
+  const normalizedQuery = normalizeSearchText(query.trim())
+
+  return entries.filter((entry) => {
+    if (status !== 'all' && entry.status !== status) return false
+    if (!normalizedQuery) return true
+
+    const tracks = [...(entry.tracks ?? []), ...(entry.report.tracks ?? [])]
+    const searchableValues = [
+      entry.name,
+      entry.url,
+      entry.outputDir,
+      entry.request.sourceUrl,
+      entry.request.destinationDirectory,
+      entry.report.source?.title,
+      entry.report.source?.collectionTitle,
+      ...tracks.flatMap((track) => [track.title, track.trackId])
+    ]
+
+    return searchableValues.some(
+      (value) => value && normalizeSearchText(value).includes(normalizedQuery)
+    )
+  })
 }
 
 export function parseDownloadHistoryJson(value: string | null): DownloadHistoryEntry[] {

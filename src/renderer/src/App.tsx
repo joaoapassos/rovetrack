@@ -255,7 +255,7 @@ export function DownloadPage(): React.JSX.Element {
           {actionError.includes('autorizado') && (
             <Link
               title="Abrir configurações de sites permitidos"
-              to="/options/config"
+              to="/config"
               className="mt-2 inline-block font-bold text-[#A2ECFB]"
             >
               Abrir configurações de sites
@@ -310,7 +310,7 @@ export function DownloadPage(): React.JSX.Element {
           onClose={() => setIsReportOpen(false)}
           onOpenHistory={() => {
             setIsReportOpen(false)
-            window.dispatchEvent(new CustomEvent('rovetrack:open-history'))
+            navigate('/history')
           }}
         />
       )}

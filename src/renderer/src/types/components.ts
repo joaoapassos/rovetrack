@@ -2,7 +2,6 @@ import type { PipelineReport, PipelineState } from '@shared/contracts/pipeline'
 import type { ButtonHTMLAttributes, FormEventHandler, ReactNode } from 'react'
 import type { FieldErrors, UseFormRegister } from 'react-hook-form'
 import type { DownloadFormData } from '../schemas/downloadForm'
-import type { DownloadHistoryEntry } from './downloadHistory'
 
 export interface ActionButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   tone?: 'primary' | 'secondary' | 'warning' | 'danger'
@@ -45,15 +44,6 @@ export interface DownloadFormProps {
   onViewReport: () => void
   onOpenFolder: () => void
   onPresetChange: (presetId: 'music' | 'video') => void
-}
-
-export interface HistoryModalProps {
-  open: boolean
-  isProcessing: boolean
-  onClose: () => void
-  onRetry: (entry: DownloadHistoryEntry) => void
-  onViewReport: (report: PipelineReport) => void
-  variant?: 'modal' | 'page'
 }
 
 export interface ReportModalProps {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   type DownloadHistoryEntry,
+  filterDownloadHistory,
   HISTORY_LIMIT,
   HISTORY_SCHEMA_VERSION,
   limitDownloadHistory,
@@ -75,5 +76,31 @@ describe('histórico', () => {
     const limited = limitDownloadHistory(entries)
     expect(limited).toHaveLength(HISTORY_LIMIT)
     expect(limited[0].createdAt >= (limited.at(-1)?.createdAt ?? '')).toBe(true)
+  })
+
+  it('filtra por status', () => {
+    const failed = { ...entry('failed'), status: 'error' as const }
+    expect(filterDownloadHistory([entry(), failed], '', 'error')).toEqual([failed])
+  })
+
+  it.each([
+    ['nome da operação', 'song'],
+    ['nome de item da playlist sem diferenciar acentos', 'cancao'],
+    ['pasta de destino', 'output'],
+    ['URL', 'youtube.com']
+  ])('busca por %s', (_description, query) => {
+    const playlist = {
+      ...entry('playlist'),
+      name: 'Minha coleção',
+      kind: 'playlist' as const,
+      tracks: [{ trackId: 'faixa-1', title: 'Canção especial', status: 'success' as const }]
+    }
+    expect(filterDownloadHistory([playlist], query, 'all')).toEqual([playlist])
+  })
+
+  it('combina texto e status e ignora espaços vazios', () => {
+    const failed = { ...entry('failed'), name: 'Arquivo alvo', status: 'error' as const }
+    expect(filterDownloadHistory([entry(), failed], ' arquivo ', 'error')).toEqual([failed])
+    expect(filterDownloadHistory([entry()], '   ', 'all')).toEqual([entry()])
   })
 })

@@ -82,13 +82,13 @@ O renderer usa `HashRouter`, compatível com o `index.html` carregado diretament
 
 ```text
 /                  → Download
-/options/config    → Configurações
-/options/history   → Histórico
-/options/about     → Sobre
-/options/terms     → Termos de Uso
+/config     → Configurações
+/history    → Histórico
+/about      → Sobre
+/terms      → Termos de Uso
 ```
 
-`/options` redireciona para `/options/config` e rotas desconhecidas retornam a `/`. O histórico permanece disponível tanto pelo modal de consulta rápida quanto pela página completa.
+Um único menu expansível reúne todas as páginas. As antigas rotas `/options/*` são redirecionadas para os novos endereços e rotas desconhecidas retornam a `/`. O histórico é exibido somente como página completa.
 
 ## Política de domínios
 

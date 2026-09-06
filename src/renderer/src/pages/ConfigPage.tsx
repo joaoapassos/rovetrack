@@ -76,18 +76,20 @@ export function ConfigPage(): React.JSX.Element {
   }
 
   return (
-    <div className="space-y-6">
-      <header>
+    <div className="flex flex-col gap-3">
+      <header className="text-center flex flex-col gap3">
         <h2 className="text-2xl font-bold">Configurações</h2>
-        <p className="text-sm text-[#a0a4a8]">Preferências e políticas persistidas localmente.</p>
+        <p className="mt-2 text-sm text-[#a0a4a8]">
+          Preferências e políticas persistidas localmente.
+        </p>
       </header>
 
-      <section className="border border-[#32363f] bg-[#222222] p-5">
+      <section className="border border-[#32363f] bg-[#222222] p-6 sm:p-7">
         <h3 className="text-lg font-bold">Sites permitidos</h3>
         <p className="mt-1 text-sm text-[#a0a4a8]">
           Autorizar um site permite que o provider tente processá-lo; não garante compatibilidade.
         </p>
-        <ul className="my-4 space-y-2">
+        <ul className="my-5 space-y-3">
           {settings.allowedSites.map((site) => (
             <li key={site.id} className="flex items-center gap-3 border border-[#32363f] p-3">
               <input
@@ -154,11 +156,11 @@ export function ConfigPage(): React.JSX.Element {
         )}
       </section>
 
-      <section className="border border-[#32363f] bg-[#222222] p-5">
+      <section className="border border-[#32363f] bg-[#222222] p-6 sm:p-7">
         <h3 className="text-lg font-bold">Presets de download</h3>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
           {settings.downloadPresets.map((preset) => (
-            <fieldset key={preset.id} className="space-y-3 border border-[#32363f] p-4">
+            <fieldset key={preset.id} className="space-y-4 border border-[#32363f] p-5">
               <legend className="px-2 font-bold">
                 {preset.name} · {preset.outputFormat.toUpperCase()}
               </legend>
@@ -287,7 +289,7 @@ export function ConfigPage(): React.JSX.Element {
         </div>
       </section>
 
-      <section id="backup" className="border border-[#32363f] bg-[#222222] p-5">
+      <section id="backup" className="border border-[#32363f] bg-[#222222] p-6 sm:p-7">
         <h3 className="text-lg font-bold">Dados / Backup</h3>
         <p className="mt-1 text-sm text-[#a0a4a8]">
           O histórico pode conter URLs e caminhos locais do seu computador.
@@ -316,7 +318,7 @@ export function ConfigPage(): React.JSX.Element {
         </div>
         {dataMessage && <p className="mt-3 text-xs text-[#A2ECFB]">{dataMessage}</p>}
         <Link
-          to="/options/history"
+          to="/history"
           title="Abrir a página completa de histórico"
           className="mt-4 inline-block text-xs font-bold uppercase text-[#A2ECFB]"
         >
