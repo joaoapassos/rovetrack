@@ -1,9 +1,10 @@
 {
   "name": "rovetrack",
   "version": "0.2.0-beta",
-  "description": "Aplicativo desktop local para obter e organizar áudio MP3 e vídeo MP4.",
+  "description": "Aplicativo desktop local e open source para baixar, converter e organizar áudio e vídeo.",
   "main": "./out/main/index.js",
   "author": "João Alves Passos",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/joaoapassos/rovetrack",
   "scripts": {
     "format": "biome format --write ./src",

@@ -16,6 +16,8 @@ files:
 extraResources:
   - from: TERMS_OF_USE.md
     to: TERMS_OF_USE.md
+  - from: LICENSE
+    to: LICENSE
 asarUnpack:
   - resources/**
   - node_modules/ffmpeg-static/**

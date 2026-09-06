@@ -1,6 +1,6 @@
 # Termos de Uso do RoveTrack
 
-Última atualização: 31 de agosto de 2026.
+Última atualização: 6 de setembro de 2026.
 
 Ao instalar ou utilizar o RoveTrack, você declara que leu e concorda com estes Termos de Uso. Caso não concorde, não instale nem utilize o software.
 
@@ -51,8 +51,16 @@ O RoveTrack funciona essencialmente de forma local. O projeto não hospeda, mant
 
 O aplicativo pode utilizar componentes externos, incluindo yt-dlp, FFmpeg, Sharp e outras bibliotecas. Esses projetos são independentes e possuem licenças, termos e políticas próprios, que devem ser observados quando aplicáveis.
 
-## 9. Garantias
+## 9. Licença do software
+
+O código-fonte do RoveTrack é disponibilizado sob a [Apache License 2.0](https://github.com/joaoapassos/rovetrack/blob/master/LICENSE). Essa licença permite usar, estudar, modificar e distribuir o software nas condições descritas no arquivo `LICENSE`, incluindo a preservação dos avisos aplicáveis.
+
+Estes Termos de Uso não substituem nem restringem os direitos concedidos pela Apache License 2.0 sobre o código do RoveTrack. Da mesma forma, a licença do código não concede direitos sobre mídias processadas, marcas, serviços ou conteúdos de terceiros.
+
+Contribuições e redistribuições permanecem sujeitas às condições da Apache License 2.0. Componentes de terceiros incluídos ou utilizados pelo projeto conservam suas próprias licenças.
+
+## 10. Garantias
 
 O software é fornecido “como está”, sem promessa de disponibilidade contínua, compatibilidade com toda fonte ou ausência absoluta de erros. Dentro dos limites permitidos pela legislação aplicável, não são oferecidas garantias adicionais além das expressamente previstas em lei.
 
-Este documento constitui um termo inicial do projeto e poderá ser atualizado ou submetido a revisão jurídica futura.
+Este documento constitui um termo inicial do projeto e poderá ser atualizado ou submetido a revisão jurídica futura. Ele não substitui aconselhamento jurídico profissional.

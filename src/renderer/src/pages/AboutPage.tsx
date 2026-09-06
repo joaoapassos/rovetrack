@@ -16,15 +16,28 @@ export function AboutPage(): React.JSX.Element {
           <dd>{applicationVersion}</dd>
         </div>
         <div>
-          <dt className="text-[#6f767d]">Licença de uso</dt>
-          <dd>
+          <dt className="text-[#6f767d]">Termos e licença</dt>
+          <dd className="flex flex-wrap gap-x-2">
             <Link
               to="/terms"
               title="Consultar os Termos de Uso"
               className="text-[#A2ECFB] underline decoration-[#A2ECFB]/40 underline-offset-4 transition-colors hover:text-white"
             >
-              Consulte os Termos de Uso
+              Termos de Uso
             </Link>
+            <span aria-hidden="true">·</span>
+            <button
+              type="button"
+              title="Consultar a Apache License 2.0 no GitHub"
+              onClick={() =>
+                void window.api.openExternal(
+                  'https://github.com/joaoapassos/rovetrack/blob/master/LICENSE'
+                )
+              }
+              className="text-[#A2ECFB] underline decoration-[#A2ECFB]/40 underline-offset-4 transition-colors hover:text-white"
+            >
+              Apache 2.0
+            </button>
           </dd>
         </div>
       </dl>

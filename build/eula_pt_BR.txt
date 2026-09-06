@@ -1,11 +1,11 @@
 TERMOS DE USO DO ROVETRACK
-Última atualização: 31 de agosto de 2026.
+Última atualização: 6 de setembro de 2026.
 
 Ao instalar ou utilizar o RoveTrack, você declara que leu e concorda com estes Termos de Uso. Caso não concorde, recuse estes termos e cancele a instalação.
 
 1. FINALIDADE DO SOFTWARE
 
-O RoveTrack é uma ferramenta de propósito geral para obtenção, processamento e organização local de conteúdos aos quais o usuário tenha acesso por meio de fontes suportadas. Atualmente, o aplicativo oferece um fluxo voltado à obtenção de áudio em MP3, com organização de metadata e capa.
+O RoveTrack é uma ferramenta de propósito geral para obtenção, processamento e organização local de conteúdos aos quais o usuário tenha acesso por meio de fontes suportadas. Atualmente, o aplicativo oferece formatos configuráveis de áudio e vídeo, com metadados e thumbnail configurável.
 
 O RoveTrack não concede acesso a conteúdos, contas ou serviços e não substitui as autorizações exigidas pelo titular do conteúdo, pelo serviço acessado ou pela legislação aplicável.
 
@@ -41,8 +41,14 @@ O RoveTrack funciona essencialmente de forma local. O projeto não hospeda, mant
 
 O aplicativo pode utilizar componentes externos, incluindo yt-dlp, FFmpeg e Sharp. Esses projetos são independentes e possuem licenças e termos próprios.
 
-9. GARANTIAS
+9. LICENÇA DO SOFTWARE
+
+O código-fonte do RoveTrack é disponibilizado sob a Apache License 2.0. Essa licença permite usar, estudar, modificar e distribuir o software nas condições descritas no arquivo LICENSE, incluindo a preservação dos avisos aplicáveis.
+
+Estes Termos de Uso não substituem nem restringem os direitos concedidos pela Apache License 2.0 sobre o código do RoveTrack. Da mesma forma, a licença do código não concede direitos sobre mídias processadas, marcas, serviços ou conteúdos de terceiros. Componentes de terceiros conservam suas próprias licenças.
+
+10. GARANTIAS
 
 O software é fornecido "como está", sem promessa de disponibilidade contínua, compatibilidade com toda fonte ou ausência absoluta de erros. Dentro dos limites permitidos pela legislação aplicável, não são oferecidas garantias adicionais além das expressamente previstas em lei.
 
-Este documento constitui um termo inicial do projeto e poderá ser atualizado ou submetido a revisão jurídica futura.
+Este documento constitui um termo inicial do projeto e poderá ser atualizado ou submetido a revisão jurídica futura. Ele não substitui aconselhamento jurídico profissional.
