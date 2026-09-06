@@ -6,7 +6,7 @@ Ao instalar ou utilizar o RoveTrack, você declara que leu e concorda com estes 
 
 ## 1. Finalidade do software
 
-O RoveTrack é uma ferramenta de propósito geral para obtenção, processamento e organização local de conteúdos aos quais o usuário tenha acesso por meio de fontes suportadas. Atualmente, o aplicativo oferece fluxos de áudio em MP3 e vídeo em MP4, com metadata e thumbnail configurável.
+O RoveTrack é uma ferramenta de propósito geral para obtenção, processamento e organização local de conteúdos aos quais o usuário tenha acesso por meio de fontes suportadas. Atualmente, o aplicativo oferece formatos configuráveis de áudio e vídeo, com metadata e thumbnail configurável.
 
 O RoveTrack não concede acesso a conteúdos, contas ou serviços e não substitui as autorizações exigidas pelo titular do conteúdo, pelo serviço acessado ou pela legislação aplicável.
 

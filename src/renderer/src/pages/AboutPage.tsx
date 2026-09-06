@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 export function AboutPage(): React.JSX.Element {
   return (
     <article className="mx-auto flex flex-col gap-3 border border-[#32363f] bg-[#222222] p-7 sm:p-9">
@@ -13,7 +15,15 @@ export function AboutPage(): React.JSX.Element {
         </div>
         <div>
           <dt className="text-[#6f767d]">Licença de uso</dt>
-          <dd>Consulte os Termos de Uso</dd>
+          <dd>
+            <Link
+              to="/terms"
+              title="Consultar os Termos de Uso"
+              className="text-[#A2ECFB] underline decoration-[#A2ECFB]/40 underline-offset-4 transition-colors hover:text-white"
+            >
+              Consulte os Termos de Uso
+            </Link>
+          </dd>
         </div>
       </dl>
       <button
