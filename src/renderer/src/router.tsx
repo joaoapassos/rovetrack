@@ -1,9 +1,8 @@
 import { Download, History, Home, Info, Menu, ScrollText, Settings, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   HashRouter,
   Navigate,
-  NavLink,
   Outlet,
   type RouteObject,
   useLocation,
@@ -11,6 +10,12 @@ import {
   useRoutes
 } from 'react-router-dom'
 import { DownloadPage } from './App'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from './components/DropdownMenu'
 import { AboutPage } from './pages/AboutPage'
 import { ConfigPage } from './pages/ConfigPage'
 import { HistoryPage } from './pages/HistoryPage'
@@ -34,7 +39,6 @@ const menuItems = [
 function RootLayout(): React.JSX.Element {
   const location = useLocation()
   const navigate = useNavigate()
-  const menuRef = useRef<HTMLElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [telemetry, setTelemetry] = useState(getDownloadTelemetry)
   const isHome = location.pathname === '/'
@@ -50,78 +54,50 @@ function RootLayout(): React.JSX.Element {
     }
   }, [])
 
-  useEffect(() => {
-    if (!menuOpen) return
-
-    const closeMenu = (event: PointerEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false)
-    }
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMenuOpen(false)
-    }
-
-    window.addEventListener('pointerdown', closeMenu)
-    window.addEventListener('keydown', closeOnEscape)
-    return () => {
-      window.removeEventListener('pointerdown', closeMenu)
-      window.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [menuOpen])
-
   return (
     <>
-      <nav ref={menuRef} className="fixed left-5 top-5 z-40" aria-label="Navegação principal">
-        <button
-          type="button"
-          title={menuOpen ? 'Fechar menu principal' : 'Abrir menu principal'}
-          aria-label={menuOpen ? 'Fechar menu principal' : 'Abrir menu principal'}
-          aria-expanded={menuOpen}
-          aria-controls="main-navigation-menu"
-          onClick={() => setMenuOpen((open) => !open)}
-          className="flex h-10 w-10 items-center justify-center border border-[#32363f] bg-[#222222] text-[#a0a4a8] shadow-lg transition-colors hover:border-[#A2ECFB] hover:text-[#A2ECFB]"
-        >
-          {menuOpen ? (
-            <X className="h-5 w-5" aria-hidden="true" />
-          ) : (
-            <Menu className="h-5 w-5" aria-hidden="true" />
-          )}
-        </button>
-
-        {menuOpen && (
-          <div
-            id="main-navigation-menu"
-            className="absolute left-0 top-12 w-56 overflow-hidden border border-[#414853] bg-[#222222] shadow-2xl"
-          >
+      <nav className="fixed left-5 top-5 z-40" aria-label="Navegação principal">
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              title={menuOpen ? 'Fechar menu principal' : 'Abrir menu principal'}
+              aria-label={menuOpen ? 'Fechar menu principal' : 'Abrir menu principal'}
+              className="flex h-10 w-10 items-center justify-center border border-[#32363f] bg-[#222222] text-[#a0a4a8] shadow-lg transition-colors hover:border-[#A2ECFB] hover:text-[#A2ECFB]"
+            >
+              {menuOpen ? (
+                <X className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <Menu className="h-5 w-5" aria-hidden="true" />
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
             <div className="border-b border-[#32363f] px-4 py-3">
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-[#A2ECFB]">
                 RoveTrack
               </p>
               <p className="mt-1 text-xs text-[#6f767d]">Navegação</p>
             </div>
-            <ul className="p-2">
+            <div className="p-2">
               {menuItems.map(({ to, label, icon: Icon }) => (
-                <li key={to}>
-                  <NavLink
-                    to={to}
-                    end={to === '/'}
-                    title={`Ir para ${label}`}
-                    onClick={() => setMenuOpen(false)}
-                    className={({ isActive: active }) =>
-                      `flex items-center gap-3 border-l-2 px-3 py-2.5 text-xs font-bold uppercase transition-colors ${
-                        active
-                          ? 'border-[#A2ECFB] bg-[#1b1b1f] text-[#A2ECFB]'
-                          : 'border-transparent text-[#a0a4a8] hover:bg-[#282828] hover:text-white'
-                      }`
-                    }
-                  >
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                    {label}
-                  </NavLink>
-                </li>
+                <DropdownMenuItem
+                  key={to}
+                  title={`Ir para ${label}`}
+                  onSelect={() => navigate(to)}
+                  className={`flex cursor-pointer items-center gap-3 border-l-2 px-3 py-2.5 text-xs font-bold uppercase transition-colors ${
+                    location.pathname === to
+                      ? 'border-[#A2ECFB] bg-[#1b1b1f] text-[#A2ECFB]'
+                      : 'border-transparent text-[#a0a4a8] hover:text-white'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  {label}
+                </DropdownMenuItem>
               ))}
-            </ul>
-          </div>
-        )}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </nav>
 
       <Outlet />

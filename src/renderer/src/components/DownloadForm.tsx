@@ -1,12 +1,38 @@
+import { Controller } from 'react-hook-form'
 import type { DownloadFormProps } from '../types/components'
 import { ActionButton } from './ActionButton'
 import { FormField } from './FormField'
+import { Select } from './Select'
 import { TelemetryPanel } from './TelemetryPanel'
 
 const terminalStatuses = new Set(['success', 'partial', 'interrupted', 'error'])
+const presetOptions = [
+  { value: 'music', label: 'Música' },
+  { value: 'video', label: 'Vídeo' }
+] as const
+const mediaTypeOptions = [
+  { value: 'audio', label: 'Música (MP3)' },
+  { value: 'video', label: 'Vídeo (MP4)' }
+] as const
+const qualityOptions = [
+  { value: 'best', label: 'Máxima' },
+  { value: 'high', label: 'Alta' },
+  { value: 'medium', label: 'Média' },
+  { value: 'low', label: 'Baixa' }
+] as const
+const aspectRatioOptions = [
+  { value: '1:1', label: '1:1' },
+  { value: '16:9', label: '16:9' }
+] as const
+const thumbnailFormatOptions = [
+  { value: 'jpg', label: 'JPG' },
+  { value: 'png', label: 'PNG' },
+  { value: 'webp', label: 'WebP' }
+] as const
 
 export function DownloadForm({
   register,
+  control,
   errors,
   telemetry,
   progress,
@@ -61,30 +87,41 @@ export function DownloadForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField id="preset" label="Preset" error={errors.presetId?.message}>
-          <select
-            id="preset"
-            title="Escolher preset de download"
-            {...register('presetId', {
-              onChange: (event) => onPresetChange(event.target.value as 'music' | 'video')
-            })}
-            disabled={isActive}
-            className="w-full rounded border border-[#32363f] bg-[#161618] p-3 text-sm"
-          >
-            <option value="music">Música</option>
-            <option value="video">Vídeo</option>
-          </select>
+          <Controller
+            name="presetId"
+            control={control}
+            render={({ field }) => (
+              <Select
+                id="preset"
+                title="Escolher preset de download"
+                value={field.value}
+                options={presetOptions}
+                disabled={isActive}
+                className="rounded p-3"
+                onValueChange={(value) => {
+                  field.onChange(value)
+                  onPresetChange(value as 'music' | 'video')
+                }}
+              />
+            )}
+          />
         </FormField>
         <FormField id="media-type" label="Tipo" error={errors.mediaType?.message}>
-          <select
-            id="media-type"
-            title="Escolher tipo de mídia"
-            {...register('mediaType')}
-            disabled={isActive}
-            className="w-full rounded border border-[#32363f] bg-[#161618] p-3 text-sm"
-          >
-            <option value="audio">Música (MP3)</option>
-            <option value="video">Vídeo (MP4)</option>
-          </select>
+          <Controller
+            name="mediaType"
+            control={control}
+            render={({ field }) => (
+              <Select
+                id="media-type"
+                title="Escolher tipo de mídia"
+                value={field.value}
+                options={mediaTypeOptions}
+                disabled={isActive}
+                className="rounded p-3"
+                onValueChange={field.onChange}
+              />
+            )}
+          />
         </FormField>
       </div>
 
@@ -111,54 +148,81 @@ export function DownloadForm({
               Música, a capa é incorporada ao arquivo MP3.
             </p>
           )}
-          <label className="flex flex-col gap-1 text-xs uppercase text-[#a0a4a8]">
+          <label
+            htmlFor="media-quality"
+            className="flex flex-col gap-1 text-xs uppercase text-[#a0a4a8]"
+          >
             Qualidade
-            <select
-              title="Escolher qualidade da mídia"
-              {...register('quality')}
-              className="bg-[#161618] p-2 text-[#f8f8f8]"
-            >
-              <option value="best">Máxima</option>
-              <option value="high">Alta</option>
-              <option value="medium">Média</option>
-              <option value="low">Baixa</option>
-            </select>
+            <Controller
+              name="quality"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  id="media-quality"
+                  title="Escolher qualidade da mídia"
+                  value={field.value}
+                  options={qualityOptions}
+                  onValueChange={field.onChange}
+                />
+              )}
+            />
           </label>
-          <label className="flex flex-col gap-1 text-xs uppercase text-[#a0a4a8]">
+          <label
+            htmlFor="thumbnail-aspect-ratio"
+            className="flex flex-col gap-1 text-xs uppercase text-[#a0a4a8]"
+          >
             Proporção
-            <select
-              title="Escolher proporção da thumbnail"
-              {...register('thumbnailAspectRatio')}
-              className="bg-[#161618] p-2 text-[#f8f8f8]"
-            >
-              <option value="1:1">1:1</option>
-              <option value="16:9">16:9</option>
-            </select>
+            <Controller
+              name="thumbnailAspectRatio"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  id="thumbnail-aspect-ratio"
+                  title="Escolher proporção da thumbnail"
+                  value={field.value}
+                  options={aspectRatioOptions}
+                  onValueChange={field.onChange}
+                />
+              )}
+            />
           </label>
-          <label className="flex flex-col gap-1 text-xs uppercase text-[#a0a4a8]">
+          <label
+            htmlFor="thumbnail-quality"
+            className="flex flex-col gap-1 text-xs uppercase text-[#a0a4a8]"
+          >
             Qualidade da thumbnail
-            <select
-              title="Escolher qualidade da thumbnail"
-              {...register('thumbnailQuality')}
-              className="bg-[#161618] p-2 text-[#f8f8f8]"
-            >
-              <option value="best">Máxima</option>
-              <option value="high">Alta</option>
-              <option value="medium">Média</option>
-              <option value="low">Baixa</option>
-            </select>
+            <Controller
+              name="thumbnailQuality"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  id="thumbnail-quality"
+                  title="Escolher qualidade da thumbnail"
+                  value={field.value}
+                  options={qualityOptions}
+                  onValueChange={field.onChange}
+                />
+              )}
+            />
           </label>
-          <label className="flex flex-col gap-1 text-xs uppercase text-[#a0a4a8]">
+          <label
+            htmlFor="thumbnail-format"
+            className="flex flex-col gap-1 text-xs uppercase text-[#a0a4a8]"
+          >
             Formato da thumbnail
-            <select
-              title="Escolher formato da thumbnail"
-              {...register('thumbnailOutputFormat')}
-              className="bg-[#161618] p-2 text-[#f8f8f8]"
-            >
-              <option value="jpg">JPG</option>
-              <option value="png">PNG</option>
-              <option value="webp">WebP</option>
-            </select>
+            <Controller
+              name="thumbnailOutputFormat"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  id="thumbnail-format"
+                  title="Escolher formato da thumbnail"
+                  value={field.value}
+                  options={thumbnailFormatOptions}
+                  onValueChange={field.onChange}
+                />
+              )}
+            />
           </label>
         </div>
       </details>

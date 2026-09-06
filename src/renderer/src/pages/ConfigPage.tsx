@@ -2,11 +2,27 @@ import { DEFAULT_DOWNLOAD_PRESETS } from '@shared/contracts/settings'
 import { normalizeDomainInput } from '@shared/security/urlAccessPolicy'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Select } from '../components/Select'
 import { useAppSettings } from '../settings/AppSettingsContext'
 import { type BackupScope, createBackup, parseBackup } from '../settings/backup'
 import { listDownloadHistory, mergeDownloadHistory } from '../utils/downloadHistory'
 
 const fieldClass = 'border border-[#414853] bg-[#161618] px-3 py-2 text-sm text-[#f8f8f8]'
+const qualityOptions = [
+  { value: 'best', label: 'Máxima' },
+  { value: 'high', label: 'Alta' },
+  { value: 'medium', label: 'Média' },
+  { value: 'low', label: 'Baixa' }
+] as const
+const aspectRatioOptions = [
+  { value: '1:1', label: '1:1' },
+  { value: '16:9', label: '16:9' }
+] as const
+const thumbnailFormatOptions = [
+  { value: 'jpg', label: 'JPG' },
+  { value: 'png', label: 'PNG' },
+  { value: 'webp', label: 'WebP' }
+] as const
 
 export function ConfigPage(): React.JSX.Element {
   const { settings, updateSettings, restoreDefaults } = useAppSettings()
@@ -164,28 +180,27 @@ export function ConfigPage(): React.JSX.Element {
               <legend className="px-2 font-bold">
                 {preset.name} · {preset.outputFormat.toUpperCase()}
               </legend>
-              <label className="flex flex-col gap-1 text-xs uppercase text-[#a0a4a8]">
+              <label
+                htmlFor={`${preset.id}-quality`}
+                className="flex flex-col gap-1 text-xs uppercase text-[#a0a4a8]"
+              >
                 Qualidade
-                <select
+                <Select
+                  id={`${preset.id}-quality`}
                   value={preset.quality}
                   title={`Escolher qualidade do preset ${preset.name}`}
-                  className={fieldClass}
-                  onChange={(event) =>
+                  options={qualityOptions}
+                  onValueChange={(value) =>
                     updateSettings((current) => ({
                       ...current,
                       downloadPresets: current.downloadPresets.map((item) =>
                         item.id === preset.id
-                          ? { ...item, quality: event.target.value as typeof item.quality }
+                          ? { ...item, quality: value as typeof item.quality }
                           : item
                       ) as typeof current.downloadPresets
                     }))
                   }
-                >
-                  <option value="best">Máxima</option>
-                  <option value="high">Alta</option>
-                  <option value="medium">Média</option>
-                  <option value="low">Baixa</option>
-                </select>
+                />
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -217,6 +232,7 @@ export function ConfigPage(): React.JSX.Element {
                 {(['aspectRatio', 'quality', 'outputFormat'] as const).map((field) => (
                   <label
                     key={field}
+                    htmlFor={`${preset.id}-thumbnail-${field}`}
                     className="flex flex-col gap-1 text-[10px] uppercase text-[#a0a4a8]"
                   >
                     {field === 'aspectRatio'
@@ -224,44 +240,31 @@ export function ConfigPage(): React.JSX.Element {
                       : field === 'outputFormat'
                         ? 'Formato'
                         : 'Qualidade'}
-                    <select
+                    <Select
+                      id={`${preset.id}-thumbnail-${field}`}
                       value={preset.thumbnail[field]}
                       title={`Alterar ${field === 'aspectRatio' ? 'proporção' : field === 'outputFormat' ? 'formato' : 'qualidade'} da thumbnail do preset ${preset.name}`}
-                      className={fieldClass}
-                      onChange={(event) =>
+                      options={
+                        field === 'aspectRatio'
+                          ? aspectRatioOptions
+                          : field === 'outputFormat'
+                            ? thumbnailFormatOptions
+                            : qualityOptions
+                      }
+                      onValueChange={(value) =>
                         updateSettings((current) => ({
                           ...current,
                           downloadPresets: current.downloadPresets.map((item) =>
                             item.id === preset.id
                               ? {
                                   ...item,
-                                  thumbnail: { ...item.thumbnail, [field]: event.target.value }
+                                  thumbnail: { ...item.thumbnail, [field]: value }
                                 }
                               : item
                           ) as typeof current.downloadPresets
                         }))
                       }
-                    >
-                      {field === 'aspectRatio' ? (
-                        <>
-                          <option value="1:1">1:1</option>
-                          <option value="16:9">16:9</option>
-                        </>
-                      ) : field === 'outputFormat' ? (
-                        <>
-                          <option value="jpg">JPG</option>
-                          <option value="png">PNG</option>
-                          <option value="webp">WebP</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="best">Máxima</option>
-                          <option value="high">Alta</option>
-                          <option value="medium">Média</option>
-                          <option value="low">Baixa</option>
-                        </>
-                      )}
-                    </select>
+                    />
                   </label>
                 ))}
               </div>

@@ -1,6 +1,6 @@
 import type { PipelineReport, PipelineState } from '@shared/contracts/pipeline'
 import type { ButtonHTMLAttributes, FormEventHandler, ReactNode } from 'react'
-import type { FieldErrors, UseFormRegister } from 'react-hook-form'
+import type { Control, FieldErrors, UseFormRegister } from 'react-hook-form'
 import type { DownloadFormData } from '../schemas/downloadForm'
 
 export interface ActionButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -31,6 +31,7 @@ export interface TelemetryPanelProps {
 
 export interface DownloadFormProps {
   register: UseFormRegister<DownloadFormData>
+  control: Control<DownloadFormData>
   errors: FieldErrors<DownloadFormData>
   telemetry: PipelineState | null
   progress: number

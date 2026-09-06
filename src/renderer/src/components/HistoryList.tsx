@@ -1,4 +1,4 @@
-import { Search, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { DownloadHistoryEntry } from '../types/downloadHistory'
 import {
@@ -8,11 +8,21 @@ import {
   type HistoryStatusFilter,
   listDownloadHistory
 } from '../utils/downloadHistory'
+import { SearchInput } from './SearchInput'
+import { Select } from './Select'
 
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   dateStyle: 'medium',
   timeStyle: 'short'
 })
+
+const statusOptions = [
+  { value: 'all', label: 'Todos' },
+  { value: 'success', label: 'Concluídos' },
+  { value: 'partial', label: 'Parciais' },
+  { value: 'interrupted', label: 'Interrompidos' },
+  { value: 'error', label: 'Falhas' }
+] as const
 
 interface HistoryListProps {
   isProcessing: boolean
@@ -106,42 +116,31 @@ export function HistoryList({
 
       <div className="p-5 sm:p-7">
         <div className="mb-7 grid gap-4 border border-[#32363f] bg-[#1b1b1f] p-4 md:grid-cols-[minmax(0,1fr)_180px_auto] md:items-end">
-          <label className="flex min-w-0 flex-col gap-2">
+          <label htmlFor="history-search" className="flex min-w-0 flex-col gap-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#a0a4a8]">
               Buscar no histórico
             </span>
-            <span className="relative">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f767d]"
-                aria-hidden="true"
-              />
-              <input
-                type="search"
-                value={query}
-                title="Buscar por arquivo, item da playlist, pasta ou link"
-                placeholder="Arquivo, item, pasta ou link"
-                onChange={(event) => setQuery(event.target.value)}
-                className="w-full border border-[#414853] bg-[#161618] py-2.5 pl-10 pr-3 text-sm text-[#f8f8f8] outline-none transition-colors placeholder:text-[#6f767d] focus:border-[#A2ECFB]"
-              />
-            </span>
+            <SearchInput
+              id="history-search"
+              value={query}
+              title="Buscar por arquivo, item da playlist, pasta ou link"
+              placeholder="Arquivo, item, pasta ou link"
+              onChange={(event) => setQuery(event.target.value)}
+              onClear={() => setQuery('')}
+            />
           </label>
 
-          <label className="flex flex-col gap-2">
+          <label htmlFor="history-status" className="flex flex-col gap-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#a0a4a8]">
               Status
             </span>
-            <select
+            <Select
+              id="history-status"
               value={statusFilter}
               title="Filtrar downloads por status"
-              onChange={(event) => setStatusFilter(event.target.value as HistoryStatusFilter)}
-              className="border border-[#414853] bg-[#161618] px-3 py-2.5 text-sm text-[#f8f8f8] outline-none transition-colors focus:border-[#A2ECFB]"
-            >
-              <option value="all">Todos</option>
-              <option value="success">Concluídos</option>
-              <option value="partial">Parciais</option>
-              <option value="interrupted">Interrompidos</option>
-              <option value="error">Falhas</option>
-            </select>
+              options={statusOptions}
+              onValueChange={(value) => setStatusFilter(value as HistoryStatusFilter)}
+            />
           </label>
 
           <button

@@ -58,6 +58,7 @@ export function DownloadPage(): React.JSX.Element {
 
   const {
     register,
+    control,
     handleSubmit,
     setValue,
     setError,
@@ -265,6 +266,7 @@ export function DownloadPage(): React.JSX.Element {
       )}
       <DownloadForm
         register={register}
+        control={control}
         errors={errors}
         telemetry={telemetry}
         progress={calculateGlobalProgress(telemetry)}
