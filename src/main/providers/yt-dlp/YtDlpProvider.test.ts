@@ -28,6 +28,8 @@ describe('YtDlpProvider', () => {
     expect(provider.supports(request)).toBe(true)
     expect(provider.supports({ ...request, sourceUrl: 'https://example.com/video' })).toBe(true)
     expect(provider.supports({ ...request, mediaType: 'video', outputFormat: 'mp4' })).toBe(true)
+    expect(provider.supports({ ...request, outputFormat: 'flac' })).toBe(true)
+    expect(provider.supports({ ...request, mediaType: 'video', outputFormat: 'mkv' })).toBe(true)
   })
 
   it('normaliza artefatos produzidos sem acessar a internet', async () => {
@@ -86,6 +88,26 @@ describe('YtDlpProvider', () => {
       outputFormat: 'mp4',
       title: 'Vídeo'
     })
+  })
+
+  it.each([
+    ['aac', 'm4a'],
+    ['alac', 'm4a'],
+    ['vorbis', 'ogg']
+  ] as const)('localiza saída %s no contêiner .%s produzido pelo yt-dlp', async (outputFormat, extension) => {
+    const workspace = await mkdtemp(join(tmpdir(), `rovetrack-provider-${outputFormat}-`))
+    temporaryDirectories.push(workspace)
+    await writeFile(join(workspace, `rovetrack_temp_audio.${extension}`), 'audio')
+    await writeFile(
+      join(workspace, 'rovetrack_temp_audio.info.json'),
+      JSON.stringify({ id: 'audio', title: 'Áudio convertido' })
+    )
+    const provider = new YtDlpProvider(vi.fn().mockResolvedValue({ total: 1, errors: [] }))
+    const result = await provider.download(
+      { ...request, outputFormat },
+      { workspaceDirectory: workspace, updateTelemetry: vi.fn(), control: new RunController() }
+    )
+    expect(result.assets[0]).toMatchObject({ outputFormat, title: 'Áudio convertido' })
   })
 
   it('isola metadados inválidos sem descartar os demais itens da playlist', async () => {

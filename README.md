@@ -100,6 +100,17 @@ Uma URL precisa:
 
 Hostnames são normalizados com as APIs de URL/IDNA. Um domínio permitido aceita seus subdomínios reais, mas não nomes parecidos como `youtube.com.attacker.com`. Hosts locais e redes privadas são rejeitados ao cadastrar domínios customizados.
 
+As regras de sites possuem CRUD completo e aceitam vários domínios normalizados. Quando existe ao menos um domínio habilitado, a origem precisa corresponder à lista. Quando não existe nenhum, o RoveTrack aceita qualquer URL HTTPS pública que passe pelas verificações de segurança; endereços locais, redes privadas, credenciais, portas e protocolos inseguros continuam bloqueados.
+
+## Formatos de saída
+
+Os presets podem ser criados, editados, duplicados e excluídos. Os formatos disponíveis seguem as conversões documentadas pelo yt-dlp/FFmpeg:
+
+- áudio: MP3, M4A, Opus, FLAC, WAV, AAC, Vorbis e ALAC;
+- vídeo: MP4, WebM, MKV, MOV e AVI.
+
+AAC e ALAC utilizam contêiner M4A, enquanto Vorbis utiliza contêiner OGG. A thumbnail de vídeo permanece como arquivo separado; para áudio, o processamento de capa segue o suporte do formato selecionado.
+
 ## Configurações e backup
 
 As configurações possuem schema Zod versionado e defaults centralizados. O backup usa JSON versionado, diálogos nativos e seleção de configurações, histórico ou ambos. Arquivos importados têm limite de 5 MB e são integralmente validados antes da aplicação; configurações são substituídas e histórico é mesclado por `id`.
@@ -200,4 +211,4 @@ Leia os [Termos de Uso](TERMS_OF_USE.md) antes de instalar ou utilizar o aplicat
 
 ## Possibilidades futuras
 
-Sem compromisso de prazo, a arquitetura permite registrar novos providers, processors, presets, páginas e formatos sem reescrever o pipeline ou a persistência do histórico. Prioridade/fallback de providers, plugins, autenticação, fila e formatos adicionais não fazem parte desta versão.
+Sem compromisso de prazo, a arquitetura permite registrar novos providers, processors, presets, páginas e formatos sem reescrever o pipeline ou a persistência do histórico. Prioridade/fallback de providers, plugins, autenticação e fila não fazem parte desta versão.

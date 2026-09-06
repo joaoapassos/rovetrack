@@ -1,23 +1,29 @@
 import { describe, expect, it, vi } from 'vitest'
-import { VideoMp4Processor } from './VideoMp4Processor'
+import { VideoProcessor } from './VideoProcessor'
 
-describe('VideoMp4Processor', () => {
-  it('entrega MP4 sem exigir thumbnail quando ela está desligada', async () => {
-    const processor = new VideoMp4Processor()
+describe('VideoProcessor', () => {
+  it.each([
+    'mp4',
+    'webm',
+    'mkv',
+    'mov',
+    'avi'
+  ] as const)('entrega vídeo %s sem exigir thumbnail quando ela está desligada', async (outputFormat) => {
+    const processor = new VideoProcessor()
     const result = await processor.process(
       {
         sourceId: '1',
         sourceUrl: 'https://youtube.com/watch?v=1',
         title: 'Vídeo',
         mediaType: 'video',
-        outputFormat: 'mp4',
-        filePath: 'video.mp4'
+        outputFormat,
+        filePath: `video.${outputFormat}`
       },
       {
         sourceUrl: 'https://youtube.com/watch?v=1',
         destinationDirectory: 'C:\\output',
         mediaType: 'video',
-        outputFormat: 'mp4',
+        outputFormat,
         quality: 'best',
         thumbnail: { enabled: false, aspectRatio: '16:9', quality: 'best', outputFormat: 'jpg' }
       },
@@ -31,6 +37,6 @@ describe('VideoMp4Processor', () => {
         }
       }
     )
-    expect(result).toMatchObject({ extension: '.mp4', relatedFiles: [] })
+    expect(result).toMatchObject({ extension: `.${outputFormat}`, relatedFiles: [] })
   })
 })

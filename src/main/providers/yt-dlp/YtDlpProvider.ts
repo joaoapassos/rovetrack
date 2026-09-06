@@ -2,6 +2,7 @@ import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { readJsonFile } from '@main/utils/readFile'
 import type { MediaDownloadRequest } from '@shared/contracts/media'
+import { AUDIO_OUTPUT_FORMATS, VIDEO_OUTPUT_FORMATS } from '@shared/contracts/media'
 import type { PipelineReportError } from '@shared/contracts/pipeline'
 import type {
   DownloadContext,
@@ -20,27 +21,40 @@ interface YtInfoJson {
 }
 
 const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.avif']
+const outputExtensions: Record<MediaDownloadRequest['outputFormat'], string> = {
+  mp3: '.mp3',
+  m4a: '.m4a',
+  opus: '.opus',
+  flac: '.flac',
+  wav: '.wav',
+  aac: '.m4a',
+  vorbis: '.ogg',
+  alac: '.m4a',
+  mp4: '.mp4',
+  webm: '.webm',
+  mkv: '.mkv',
+  mov: '.mov',
+  avi: '.avi'
+}
 
 export class YtDlpProvider implements DownloadProvider {
   readonly id = 'yt-dlp'
   readonly capabilities = {
     mediaTypes: ['audio', 'video'],
-    outputFormats: ['mp3', 'mp4']
+    outputFormats: [...AUDIO_OUTPUT_FORMATS, ...VIDEO_OUTPUT_FORMATS]
   } as const
 
   constructor(private readonly runner: YtDlpRunner = runYtDlp) {}
 
   supports(request: MediaDownloadRequest): boolean {
-    return (
-      (request.mediaType === 'audio' && request.outputFormat === 'mp3') ||
-      (request.mediaType === 'video' && request.outputFormat === 'mp4')
-    )
+    const formats = request.mediaType === 'audio' ? AUDIO_OUTPUT_FORMATS : VIDEO_OUTPUT_FORMATS
+    return formats.includes(request.outputFormat as never)
   }
 
   async download(request: MediaDownloadRequest, context: DownloadContext): Promise<DownloadResult> {
     const runResult = await this.runner(request, context)
     const files = await readdir(context.workspaceDirectory)
-    const extension = request.mediaType === 'audio' ? '.mp3' : '.mp4'
+    const extension = outputExtensions[request.outputFormat]
     const jsonFiles = files.filter((file) => {
       if (!file.startsWith('rovetrack_temp_') || !file.endsWith('.info.json')) return false
       return files.includes(`${file.replace('.info.json', '')}${extension}`)

@@ -34,16 +34,19 @@ export function buildYtDlpMediaFlags(request: MediaDownloadRequest): Record<stri
   if (request.mediaType === 'audio') {
     return {
       extractAudio: true,
-      audioFormat: 'mp3',
+      audioFormat: request.outputFormat,
       audioQuality: audioQuality[request.quality],
-      writeThumbnail: request.thumbnail.enabled
+      embedMetadata: true,
+      writeThumbnail: request.thumbnail.enabled,
+      embedThumbnail: request.thumbnail.enabled && request.outputFormat !== 'mp3'
     }
   }
   const height = videoHeight[request.quality]
   const heightFilter = height ? `[height<=${height}]` : ''
   return {
-    format: `bestvideo${heightFilter}[ext=mp4]+bestaudio[ext=m4a]/bestvideo${heightFilter}+bestaudio/best${heightFilter}[ext=mp4]/best`,
-    mergeOutputFormat: 'mp4',
+    format: `bestvideo${heightFilter}+bestaudio/best${heightFilter}/best`,
+    mergeOutputFormat: request.outputFormat,
+    recodeVideo: request.outputFormat,
     embedMetadata: true,
     writeThumbnail: request.thumbnail.enabled
   }

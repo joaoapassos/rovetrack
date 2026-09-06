@@ -1,9 +1,15 @@
 import { z } from 'zod'
 import { normalizeDomainInput } from '../security/urlAccessPolicy'
 import { BUILTIN_ALLOWED_SITES } from '../sites/catalog'
-import { mediaQualitySchema, thumbnailOptionsSchema } from './media'
+import {
+  AUDIO_OUTPUT_FORMATS,
+  mediaQualitySchema,
+  outputFormatSchema,
+  thumbnailOptionsSchema,
+  VIDEO_OUTPUT_FORMATS
+} from './media'
 
-export const APP_SETTINGS_SCHEMA_VERSION = 1 as const
+export const APP_SETTINGS_SCHEMA_VERSION = 2 as const
 
 const normalizedDomainSchema = z
   .string()
@@ -22,8 +28,8 @@ const normalizedDomainSchema = z
 export const allowedSiteSchema = z
   .object({
     id: z.string().min(1),
-    label: z.string().min(1),
-    domains: z.array(normalizedDomainSchema).min(1),
+    label: z.string().trim().min(1),
+    domains: z.array(normalizedDomainSchema).max(20),
     enabled: z.boolean(),
     builtin: z.boolean()
   })
@@ -31,44 +37,56 @@ export const allowedSiteSchema = z
 
 export const downloadPresetSchema = z
   .object({
-    id: z.enum(['music', 'video']),
-    name: z.string().min(1),
+    id: z.string().min(1),
+    name: z.string().trim().min(1),
     mediaType: z.enum(['audio', 'video']),
-    outputFormat: z.enum(['mp3', 'mp4']),
+    outputFormat: outputFormatSchema,
     quality: mediaQualitySchema,
     thumbnail: thumbnailOptionsSchema,
-    builtin: z.literal(true)
+    builtin: z.boolean()
+  })
+  .strict()
+  .superRefine((preset, context) => {
+    const formats = preset.mediaType === 'audio' ? AUDIO_OUTPUT_FORMATS : VIDEO_OUTPUT_FORMATS
+    if (!formats.includes(preset.outputFormat as never)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['outputFormat'],
+        message: 'O formato não é compatível com o tipo de mídia.'
+      })
+    }
+  })
+
+export const notificationSettingsSchema = z
+  .object({
+    volume: z.number().int().min(0).max(100),
+    lastAudibleVolume: z.number().int().min(1).max(100),
+    nativeEnabled: z.boolean()
   })
   .strict()
 
 export const appSettingsSchema = z
   .object({
     schemaVersion: z.literal(APP_SETTINGS_SCHEMA_VERSION),
-    allowedSites: z.array(allowedSiteSchema),
-    downloadPresets: z.array(downloadPresetSchema).length(2)
+    allowedSites: z.array(allowedSiteSchema).max(100),
+    downloadPresets: z.array(downloadPresetSchema).min(1).max(50),
+    notifications: notificationSettingsSchema
   })
   .strict()
   .superRefine((settings, context) => {
-    const music = settings.downloadPresets.find((preset) => preset.id === 'music')
-    const video = settings.downloadPresets.find((preset) => preset.id === 'video')
-    if (music?.mediaType !== 'audio' || music.outputFormat !== 'mp3') {
-      context.addIssue({
-        code: 'custom',
-        path: ['downloadPresets'],
-        message: 'Preset Música inválido.'
-      })
-    }
-    if (video?.mediaType !== 'video' || video.outputFormat !== 'mp4') {
-      context.addIssue({
-        code: 'custom',
-        path: ['downloadPresets'],
-        message: 'Preset Vídeo inválido.'
-      })
+    for (const [field, values] of [
+      ['allowedSites', settings.allowedSites],
+      ['downloadPresets', settings.downloadPresets]
+    ] as const) {
+      if (new Set(values.map((value) => value.id)).size !== values.length) {
+        context.addIssue({ code: 'custom', path: [field], message: 'Os IDs precisam ser únicos.' })
+      }
     }
   })
 
 export type AllowedSite = z.infer<typeof allowedSiteSchema>
 export type DownloadPreset = z.infer<typeof downloadPresetSchema>
+export type NotificationSettings = z.infer<typeof notificationSettingsSchema>
 export type AppSettings = z.infer<typeof appSettingsSchema>
 
 export const DEFAULT_DOWNLOAD_PRESETS: readonly DownloadPreset[] = [
@@ -92,13 +110,20 @@ export const DEFAULT_DOWNLOAD_PRESETS: readonly DownloadPreset[] = [
   }
 ]
 
+export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
+  volume: 50,
+  lastAudibleVolume: 50,
+  nativeEnabled: true
+}
+
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   schemaVersion: APP_SETTINGS_SCHEMA_VERSION,
   allowedSites: BUILTIN_ALLOWED_SITES.map((site) => ({ ...site, domains: [...site.domains] })),
   downloadPresets: DEFAULT_DOWNLOAD_PRESETS.map((preset) => ({
     ...preset,
     thumbnail: { ...preset.thumbnail }
-  }))
+  })),
+  notifications: { ...DEFAULT_NOTIFICATION_SETTINGS }
 }
 
 export function cloneDefaultSettings(): AppSettings {
@@ -106,8 +131,19 @@ export function cloneDefaultSettings(): AppSettings {
 }
 
 export function parseAppSettings(input: unknown): AppSettings {
-  if (input && typeof input === 'object' && !Array.isArray(input) && !('schemaVersion' in input)) {
-    return appSettingsSchema.parse({ ...input, schemaVersion: APP_SETTINGS_SCHEMA_VERSION })
+  const current = appSettingsSchema.safeParse(input)
+  if (current.success) return current.data
+
+  if (!input || typeof input !== 'object' || Array.isArray(input))
+    return appSettingsSchema.parse(input)
+  const legacy = input as Record<string, unknown>
+  if (legacy.schemaVersion !== undefined && legacy.schemaVersion !== 1) {
+    return appSettingsSchema.parse(input)
   }
-  return appSettingsSchema.parse(input)
+
+  return appSettingsSchema.parse({
+    ...legacy,
+    schemaVersion: APP_SETTINGS_SCHEMA_VERSION,
+    notifications: DEFAULT_NOTIFICATION_SETTINGS
+  })
 }

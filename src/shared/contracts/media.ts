@@ -1,7 +1,19 @@
 import { z } from 'zod'
 
-export const mediaTypeSchema = z.enum(['audio', 'video', 'image'])
-export const outputFormatSchema = z.enum(['mp3', 'mp4', 'webm', 'jpg', 'png'])
+export const AUDIO_OUTPUT_FORMATS = [
+  'mp3',
+  'm4a',
+  'opus',
+  'flac',
+  'wav',
+  'aac',
+  'vorbis',
+  'alac'
+] as const
+export const VIDEO_OUTPUT_FORMATS = ['mp4', 'webm', 'mkv', 'mov', 'avi'] as const
+
+export const mediaTypeSchema = z.enum(['audio', 'video'])
+export const outputFormatSchema = z.enum([...AUDIO_OUTPUT_FORMATS, ...VIDEO_OUTPUT_FORMATS])
 export const mediaQualitySchema = z.enum(['best', 'high', 'medium', 'low'])
 export const thumbnailAspectRatioSchema = z.enum(['1:1', '16:9'])
 export const thumbnailQualitySchema = z.enum(['best', 'high', 'medium', 'low'])
@@ -37,8 +49,14 @@ export const mediaDownloadRequestSchema = z
   .strict()
   .superRefine((request, context) => {
     const supported =
-      (request.mediaType === 'audio' && request.outputFormat === 'mp3') ||
-      (request.mediaType === 'video' && request.outputFormat === 'mp4')
+      (request.mediaType === 'audio' &&
+        AUDIO_OUTPUT_FORMATS.includes(
+          request.outputFormat as (typeof AUDIO_OUTPUT_FORMATS)[number]
+        )) ||
+      (request.mediaType === 'video' &&
+        VIDEO_OUTPUT_FORMATS.includes(
+          request.outputFormat as (typeof VIDEO_OUTPUT_FORMATS)[number]
+        ))
     if (!supported) {
       context.addIssue({
         code: 'custom',
@@ -52,7 +70,7 @@ export const processMediaPayloadSchema = z
   .object({
     runId: z.uuid(),
     request: mediaDownloadRequestSchema,
-    allowedDomains: z.array(z.string().min(1)).min(1).max(100)
+    allowedDomains: z.array(z.string().min(1)).max(2000)
   })
   .strict()
 

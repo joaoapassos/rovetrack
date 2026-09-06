@@ -61,28 +61,36 @@ export function hostnameMatchesDomain(hostname: string, domain: string): boolean
   )
 }
 
+export function isSafePublicHttpsUrl(sourceUrl: string): boolean {
+  try {
+    const parsed = new URL(sourceUrl)
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.port) {
+      return false
+    }
+    validatePublicHostname(parsed.hostname)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export class UrlAccessPolicy {
   constructor(private readonly sites: readonly AllowedSite[]) {}
 
   allows(sourceUrl: string): boolean {
-    let parsed: URL
-    try {
-      parsed = new URL(sourceUrl)
-      if (parsed.protocol !== 'https:' || parsed.username || parsed.password) return false
-    } catch {
-      return false
-    }
+    if (!isSafePublicHttpsUrl(sourceUrl)) return false
+    const parsed = new URL(sourceUrl)
+    const enabledDomains = this.sites.filter((site) => site.enabled).flatMap((site) => site.domains)
 
-    return this.sites
-      .filter((site) => site.enabled)
-      .flatMap((site) => site.domains)
-      .some((domain) => {
-        try {
-          return hostnameMatchesDomain(parsed.hostname, domain)
-        } catch {
-          return false
-        }
-      })
+    if (enabledDomains.length === 0) return true
+
+    return enabledDomains.some((domain) => {
+      try {
+        return hostnameMatchesDomain(parsed.hostname, domain)
+      } catch {
+        return false
+      }
+    })
   }
 
   assertAllowed(sourceUrl: string): void {

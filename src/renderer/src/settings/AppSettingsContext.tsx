@@ -1,5 +1,5 @@
 import type { AppSettings } from '@shared/contracts/settings'
-import { createContext, type ReactNode, useContext, useMemo, useState } from 'react'
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react'
 import { loadSettings, resetSettings, saveSettings } from './settingsStorage'
 
 interface AppSettingsContextValue {
@@ -12,6 +12,11 @@ const AppSettingsContext = createContext<AppSettingsContextValue | null>(null)
 
 export function AppSettingsProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const [settings, setSettings] = useState(loadSettings)
+  useEffect(() => {
+    window.api
+      .setNativeNotificationsEnabled(settings.notifications.nativeEnabled)
+      .catch(console.error)
+  }, [settings.notifications.nativeEnabled])
   const value = useMemo<AppSettingsContextValue>(
     () => ({
       settings,

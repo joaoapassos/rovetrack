@@ -1,5 +1,6 @@
 import {
   mediaQualitySchema,
+  outputFormatSchema,
   thumbnailAspectRatioSchema,
   thumbnailOutputFormatSchema,
   thumbnailQualitySchema
@@ -16,8 +17,9 @@ export const downloadFormSchema = z.object({
     }
   }, 'Informe uma URL HTTPS válida.'),
   outputDir: z.string().min(1, 'Defina o caminho de destino para a expedição.'),
-  presetId: z.enum(['music', 'video']),
+  presetId: z.string().min(1),
   mediaType: z.enum(['audio', 'video']),
+  outputFormat: outputFormatSchema,
   quality: mediaQualitySchema,
   thumbnailEnabled: z.boolean(),
   thumbnailAspectRatio: thumbnailAspectRatioSchema,

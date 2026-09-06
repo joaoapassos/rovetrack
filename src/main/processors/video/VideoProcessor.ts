@@ -1,17 +1,17 @@
 import { randomUUID } from 'node:crypto'
-import { join } from 'node:path'
+import { extname, join } from 'node:path'
 import type { DownloadedAsset } from '@main/providers/contracts'
-import type { MediaDownloadRequest } from '@shared/contracts/media'
+import { type MediaDownloadRequest, VIDEO_OUTPUT_FORMATS } from '@shared/contracts/media'
 import type { MediaProcessor, ProcessedAsset, ProcessingContext } from '../contracts'
 import { formatThumbnail } from '../thumbnail'
 
-export class VideoMp4Processor implements MediaProcessor {
+export class VideoProcessor implements MediaProcessor {
   supports(asset: DownloadedAsset, request: MediaDownloadRequest): boolean {
     return (
       asset.mediaType === 'video' &&
-      asset.outputFormat === 'mp4' &&
       request.mediaType === 'video' &&
-      request.outputFormat === 'mp4'
+      asset.outputFormat === request.outputFormat &&
+      VIDEO_OUTPUT_FORMATS.includes(request.outputFormat as never)
     )
   }
 
@@ -36,7 +36,7 @@ export class VideoMp4Processor implements MediaProcessor {
       sourceId: asset.sourceId,
       title: asset.title,
       filePath: asset.filePath,
-      extension: '.mp4',
+      extension: extname(asset.filePath),
       relatedFiles
     }
   }

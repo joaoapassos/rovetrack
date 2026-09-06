@@ -14,9 +14,10 @@ import {
   validateDirectoryPath
 } from './ipcValidation'
 import { createMediaPipeline } from './pipeline'
+import { AudioFileProcessor } from './processors/audio/AudioFileProcessor'
 import { AudioMp3Processor } from './processors/audio/AudioMp3Processor'
 import { ProcessorResolver } from './processors/ProcessorResolver'
-import { VideoMp4Processor } from './processors/video/VideoMp4Processor'
+import { VideoProcessor } from './processors/video/VideoProcessor'
 import { ProviderResolver } from './providers/ProviderResolver'
 import { YtDlpProvider } from './providers/yt-dlp/YtDlpProvider'
 import { isAllowedExternalUrl } from './security/externalNavigation'
@@ -26,7 +27,11 @@ import { cleanWorkspace, prepareWorkspace } from './utils/workspace'
 
 const processMedia = createMediaPipeline({
   providerResolver: new ProviderResolver([new YtDlpProvider()]),
-  processorResolver: new ProcessorResolver([new AudioMp3Processor(), new VideoMp4Processor()]),
+  processorResolver: new ProcessorResolver([
+    new AudioMp3Processor(),
+    new AudioFileProcessor(),
+    new VideoProcessor()
+  ]),
   outputStorage: new OutputStorage(),
   prepareWorkspace,
   cleanWorkspace

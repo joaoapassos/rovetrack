@@ -1,7 +1,16 @@
 import { z } from 'zod'
 import { mediaDownloadRequestSchema } from './media'
 import { pipelineReportSchema } from './pipeline'
-import { appSettingsSchema } from './settings'
+import { parseAppSettings } from './settings'
+
+const migratedAppSettingsSchema = z.unknown().transform((value, context) => {
+  try {
+    return parseAppSettings(value)
+  } catch {
+    context.addIssue({ code: 'custom', message: 'As configurações do backup são inválidas.' })
+    return z.NEVER
+  }
+})
 
 export const BACKUP_SCHEMA_VERSION = 1 as const
 export const BACKUP_FORMAT = 'rovetrack-backup' as const
@@ -37,7 +46,7 @@ export const backupSchema = z
     applicationVersion: z.string().min(1),
     sections: z
       .object({
-        settings: appSettingsSchema.optional(),
+        settings: migratedAppSettingsSchema.optional(),
         history: z.array(historyEntrySchema).max(100).optional()
       })
       .strict()

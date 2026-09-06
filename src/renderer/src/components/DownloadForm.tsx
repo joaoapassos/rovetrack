@@ -1,3 +1,4 @@
+import { AUDIO_OUTPUT_FORMATS, VIDEO_OUTPUT_FORMATS } from '@shared/contracts/media'
 import { Controller } from 'react-hook-form'
 import type { DownloadFormProps } from '../types/components'
 import { ActionButton } from './ActionButton'
@@ -6,13 +7,9 @@ import { Select } from './Select'
 import { TelemetryPanel } from './TelemetryPanel'
 
 const terminalStatuses = new Set(['success', 'partial', 'interrupted', 'error'])
-const presetOptions = [
-  { value: 'music', label: 'Música' },
-  { value: 'video', label: 'Vídeo' }
-] as const
 const mediaTypeOptions = [
-  { value: 'audio', label: 'Música (MP3)' },
-  { value: 'video', label: 'Vídeo (MP4)' }
+  { value: 'audio', label: 'Áudio' },
+  { value: 'video', label: 'Vídeo' }
 ] as const
 const qualityOptions = [
   { value: 'best', label: 'Máxima' },
@@ -39,15 +36,21 @@ export function DownloadForm({
   isActive,
   controlPending,
   mediaType,
+  presets,
   thumbnailEnabled,
   onSubmit,
   onSelectFolder,
   onInterrupt,
   onViewReport,
   onOpenFolder,
-  onPresetChange
+  onPresetChange,
+  onMediaTypeChange
 }: DownloadFormProps): React.JSX.Element {
   const isFinished = terminalStatuses.has(telemetry?.status ?? '')
+  const presetOptions = presets.map((preset) => ({ value: preset.id, label: preset.name }))
+  const outputFormatOptions = (
+    mediaType === 'audio' ? AUDIO_OUTPUT_FORMATS : VIDEO_OUTPUT_FORMATS
+  ).map((format) => ({ value: format, label: format.toUpperCase() }))
 
   return (
     <form
@@ -100,7 +103,7 @@ export function DownloadForm({
                 className="rounded p-3"
                 onValueChange={(value) => {
                   field.onChange(value)
-                  onPresetChange(value as 'music' | 'video')
+                  onPresetChange(value)
                 }}
               />
             )}
@@ -118,12 +121,33 @@ export function DownloadForm({
                 options={mediaTypeOptions}
                 disabled={isActive}
                 className="rounded p-3"
-                onValueChange={field.onChange}
+                onValueChange={(value) => {
+                  field.onChange(value)
+                  onMediaTypeChange(value as 'audio' | 'video')
+                }}
               />
             )}
           />
         </FormField>
       </div>
+
+      <FormField id="output-format" label="Formato final" error={errors.outputFormat?.message}>
+        <Controller
+          name="outputFormat"
+          control={control}
+          render={({ field }) => (
+            <Select
+              id="output-format"
+              title="Escolher formato final"
+              value={field.value}
+              options={outputFormatOptions}
+              disabled={isActive}
+              className="rounded p-3"
+              onValueChange={field.onChange}
+            />
+          )}
+        />
+      </FormField>
 
       <details className="border border-[#32363f] bg-[#1b1b1f] p-4">
         <summary

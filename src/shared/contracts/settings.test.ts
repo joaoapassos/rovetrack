@@ -9,7 +9,7 @@ import {
 
 describe('AppSettings', () => {
   it('possui defaults únicos para Música e Vídeo', () => {
-    expect(APP_SETTINGS_SCHEMA_VERSION).toBe(1)
+    expect(APP_SETTINGS_SCHEMA_VERSION).toBe(2)
     expect(DEFAULT_DOWNLOAD_PRESETS).toMatchObject([
       {
         id: 'music',
@@ -48,7 +48,36 @@ describe('AppSettings', () => {
   })
 
   it('migra o formato anterior sem schemaVersion', () => {
-    const { schemaVersion: _version, ...legacy } = cloneDefaultSettings()
-    expect(parseAppSettings(legacy).schemaVersion).toBe(APP_SETTINGS_SCHEMA_VERSION)
+    const {
+      schemaVersion: _version,
+      notifications: _notifications,
+      ...legacy
+    } = cloneDefaultSettings()
+    expect(parseAppSettings(legacy)).toMatchObject({
+      schemaVersion: APP_SETTINGS_SCHEMA_VERSION,
+      notifications: { volume: 50, nativeEnabled: true }
+    })
+    expect(parseAppSettings({ ...legacy, schemaVersion: 1 }).schemaVersion).toBe(
+      APP_SETTINGS_SCHEMA_VERSION
+    )
+  })
+
+  it('aceita CRUD de sites e presets com formatos compatíveis', () => {
+    const settings = cloneDefaultSettings()
+    settings.allowedSites = []
+    settings.downloadPresets.push({
+      ...settings.downloadPresets[0],
+      id: 'lossless',
+      name: 'FLAC',
+      outputFormat: 'flac',
+      builtin: false
+    })
+    expect(appSettingsSchema.safeParse(settings).success).toBe(true)
+    expect(
+      appSettingsSchema.safeParse({
+        ...settings,
+        downloadPresets: [{ ...settings.downloadPresets[0], outputFormat: 'webm' }]
+      }).success
+    ).toBe(false)
   })
 })

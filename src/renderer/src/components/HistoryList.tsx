@@ -108,10 +108,21 @@ export function HistoryList({
             Histórico de downloads
           </h2>
         </div>
-        <span className="font-mono text-xs text-[#a0a4a8]" aria-live="polite">
-          {filtersActive ? `${filteredEntries.length} DE ${entries.length}` : entries.length}{' '}
-          REGISTROS
-        </span>
+        <div className="flex flex-col items-center gap-3 sm:items-end">
+          <span className="font-mono text-xs text-[#a0a4a8]" aria-live="polite">
+            {filtersActive ? `${filteredEntries.length} DE ${entries.length}` : entries.length}{' '}
+            REGISTROS
+          </span>
+          <button
+            type="button"
+            title="Limpar todo o histórico"
+            disabled={entries.length === 0}
+            onClick={() => void handleClear()}
+            className="border border-[#414853] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[#f28b82] transition-colors hover:border-[#f28b82] disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            Limpar histórico
+          </button>
+        </div>
       </header>
 
       <div className="p-5 sm:p-7">
@@ -320,18 +331,6 @@ export function HistoryList({
           })}
         </ul>
       </div>
-
-      <footer className="flex justify-center border-t border-[#32363f] bg-[#1b1b1f] px-6 py-5 sm:justify-start">
-        <button
-          type="button"
-          title="Limpar todo o histórico"
-          disabled={entries.length === 0}
-          onClick={() => void handleClear()}
-          className="border border-[#414853] px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#f28b82] hover:border-[#f28b82] disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          Limpar histórico
-        </button>
-      </footer>
     </section>
   )
 }

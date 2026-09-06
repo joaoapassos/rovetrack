@@ -39,4 +39,32 @@ describe('flags de mídia do yt-dlp', () => {
       )
     ).toContain('height<=720')
   })
+
+  it.each([
+    'm4a',
+    'opus',
+    'flac',
+    'wav',
+    'aac',
+    'vorbis',
+    'alac'
+  ] as const)('solicita conversão real para áudio %s', (outputFormat) => {
+    expect(buildYtDlpMediaFlags({ ...request, outputFormat })).toMatchObject({
+      extractAudio: true,
+      audioFormat: outputFormat,
+      embedMetadata: true
+    })
+  })
+
+  it.each([
+    'webm',
+    'mkv',
+    'mov',
+    'avi'
+  ] as const)('solicita recodificação de vídeo para %s', (outputFormat) => {
+    expect(buildYtDlpMediaFlags({ ...request, mediaType: 'video', outputFormat })).toMatchObject({
+      mergeOutputFormat: outputFormat,
+      recodeVideo: outputFormat
+    })
+  })
 })

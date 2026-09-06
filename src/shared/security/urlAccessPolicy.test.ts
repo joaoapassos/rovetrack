@@ -46,4 +46,23 @@ describe('UrlAccessPolicy', () => {
     '192.168.1.2'
   ])('rejeita domínio customizado inválido: %s', (input) =>
     expect(() => normalizeDomainInput(input)).toThrow())
+
+  it('sem domínios aceita somente URLs HTTPS públicas seguras', () => {
+    const openPolicy = new UrlAccessPolicy([])
+    expect(openPolicy.allows('https://example.com/media')).toBe(true)
+    expect(openPolicy.allows('http://example.com/media')).toBe(false)
+    expect(openPolicy.allows('https://localhost/media')).toBe(false)
+    expect(openPolicy.allows('https://192.168.1.10/media')).toBe(false)
+    expect(
+      new UrlAccessPolicy([
+        {
+          id: 'disabled',
+          label: 'Desabilitado',
+          domains: ['youtube.com'],
+          enabled: false,
+          builtin: false
+        }
+      ]).allows('https://example.com/media')
+    ).toBe(true)
+  })
 })

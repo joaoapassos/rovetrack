@@ -33,6 +33,13 @@ describe('schemas IPC', () => {
         allowedDomains: ['youtube.com']
       }).success
     ).toBe(true)
+    expect(
+      processMediaPayloadSchema.safeParse({
+        runId: crypto.randomUUID(),
+        request: validRequest,
+        allowedDomains: []
+      }).success
+    ).toBe(true)
   })
 
   it.each([
@@ -44,7 +51,7 @@ describe('schemas IPC', () => {
     expect(mediaDownloadRequestSchema.safeParse(input).success).toBe(false)
   })
 
-  it('aceita tipo conhecido globalmente mesmo que o provider atual não o suporte', () => {
+  it('aceita os formatos implementados e rejeita combinações incompatíveis', () => {
     expect(
       mediaDownloadRequestSchema.safeParse({
         ...validRequest,
@@ -52,6 +59,12 @@ describe('schemas IPC', () => {
         outputFormat: 'mp4'
       }).success
     ).toBe(true)
+    expect(
+      mediaDownloadRequestSchema.safeParse({ ...validRequest, outputFormat: 'flac' }).success
+    ).toBe(true)
+    expect(
+      mediaDownloadRequestSchema.safeParse({ ...validRequest, outputFormat: 'webm' }).success
+    ).toBe(false)
   })
 
   it('valida diretório existente e rejeita arquivo/relativo', async () => {

@@ -1,4 +1,5 @@
 import type { PipelineReport, PipelineState } from '@shared/contracts/pipeline'
+import type { DownloadPreset } from '@shared/contracts/settings'
 import type { ButtonHTMLAttributes, FormEventHandler, ReactNode } from 'react'
 import type { Control, FieldErrors, UseFormRegister } from 'react-hook-form'
 import type { DownloadFormData } from '../schemas/downloadForm'
@@ -38,13 +39,15 @@ export interface DownloadFormProps {
   isActive: boolean
   controlPending: boolean
   mediaType: 'audio' | 'video'
+  presets: readonly DownloadPreset[]
   thumbnailEnabled: boolean
   onSubmit: FormEventHandler<HTMLFormElement>
   onSelectFolder: () => void
   onInterrupt: () => void
   onViewReport: () => void
   onOpenFolder: () => void
-  onPresetChange: (presetId: 'music' | 'video') => void
+  onPresetChange: (presetId: string) => void
+  onMediaTypeChange: (mediaType: 'audio' | 'video') => void
 }
 
 export interface ReportModalProps {

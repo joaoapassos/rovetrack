@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { AudioFileProcessor } from './audio/AudioFileProcessor'
 import { AudioMp3Processor } from './audio/AudioMp3Processor'
 import { ProcessorResolver } from './ProcessorResolver'
-import { VideoMp4Processor } from './video/VideoMp4Processor'
+import { VideoProcessor } from './video/VideoProcessor'
 
 const request = {
   sourceUrl: 'https://youtube.com/watch?v=1',
@@ -16,7 +17,11 @@ const request = {
 }
 
 describe('ProcessorResolver', () => {
-  const resolver = new ProcessorResolver([new AudioMp3Processor(), new VideoMp4Processor()])
+  const resolver = new ProcessorResolver([
+    new AudioMp3Processor(),
+    new AudioFileProcessor(),
+    new VideoProcessor()
+  ])
 
   it('resolve áudio e vídeo e rejeita combinações desconhecidas', () => {
     const baseAsset = {
@@ -36,11 +41,11 @@ describe('ProcessorResolver', () => {
         { ...baseAsset, mediaType: 'video', outputFormat: 'mp4' },
         { ...request, mediaType: 'video', outputFormat: 'mp4' }
       )
-    ).toBeInstanceOf(VideoMp4Processor)
+    ).toBeInstanceOf(VideoProcessor)
     expect(() =>
       resolver.resolve(
-        { ...baseAsset, mediaType: 'image', outputFormat: 'jpg' },
-        { ...request, mediaType: 'audio', outputFormat: 'mp3' }
+        { ...baseAsset, mediaType: 'audio', outputFormat: 'mp3' },
+        { ...request, mediaType: 'video', outputFormat: 'mp4' }
       )
     ).toThrow('Nenhum processador')
   })
